@@ -58,13 +58,35 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    if (!supabase) return;
+    if (supabase) {
+      await supabase.auth.signOut({ scope: 'local' });
+    }
 
-    await supabase.auth.signOut();
     setSession(null);
 
     if (typeof window !== 'undefined') {
-      window.location.href = '/';
+      // Limpieza fuerte de tokens Supabase en navegador
+      Object.keys(window.localStorage).forEach((key) => {
+        if (
+          key.startsWith('sb-') ||
+          key.includes('supabase') ||
+          key.includes('auth-token')
+        ) {
+          window.localStorage.removeItem(key);
+        }
+      });
+
+      Object.keys(window.sessionStorage).forEach((key) => {
+        if (
+          key.startsWith('sb-') ||
+          key.includes('supabase') ||
+          key.includes('auth-token')
+        ) {
+          window.sessionStorage.removeItem(key);
+        }
+      });
+
+      window.location.replace('/');
     }
   };
 
