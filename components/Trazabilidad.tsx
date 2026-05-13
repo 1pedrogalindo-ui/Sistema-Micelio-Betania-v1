@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { dataAPI } from '@/lib/storage';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { registrarAuditLog } from '@/lib/audit';
 import { Save, Package, Trash2, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function Trazabilidad() {
   const [cosechas, setCosechas] = useState<any[]>([]);
+  const [bandejas, setBandejas] = useState<any[]>([]);
+  const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(false);
 
@@ -29,8 +30,13 @@ export default function Trazabilidad() {
   });
 
   useEffect(() => {
-    cargarCosechas();
+    cargarDatos();
   }, []);
+
+  const mostrarMensaje = (texto: string) => {
+    setMensaje(texto);
+    setTimeout(() => setMensaje(''), 6000);
+  };
 
   const mapDbToUi = (c: any) => ({
     id: c.id,
@@ -49,7 +55,7 @@ export default function Trazabilidad() {
     createdAt: c.created_at,
   });
 
-  const cargarCosechas = async () => {
+  const cargarDatos = async () => {
     setCargando(true);
 
     const supabase = getSupabaseBrowserClient();
@@ -60,29 +66,41 @@ export default function Trazabilidad() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('cosechas')
-      .select('*')
-      .order('fecha', { ascending: false })
-      .order('created_at', { ascending: false });
+    const [{ data: cos, error: cosError }, { data: ban, error: banError }] = await Promise.all([
+      supabase
+        .from('cosechas')
+        .select('*')
+        .order('fecha', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('bandejas')
+        .select('id,codigo,lote,ciclo_id,estante,estanteria_id,nivel,posicion,estado,estanterias(codigo,nombre)')
+        .order('codigo', { ascending: true }),
+    ]);
 
-    if (error) {
-      console.error(error);
-      alert('No se pudieron cargar cosechas desde Supabase. Se mostrará respaldo local.');
+    if (cosError) {
+      console.error(cosError);
+      mostrarMensaje(`No se pudieron cargar cosechas: ${cosError.message}`);
       setCosechas(dataAPI.getCosechas());
-      setCargando(false);
-      return;
+    } else {
+      const cosechasUi = (cos || []).map(mapDbToUi);
+      setCosechas(cosechasUi);
+      dataAPI.setCosechas(cosechasUi);
     }
 
-    const cosechasUi = (data || []).map(mapDbToUi);
-    setCosechas(cosechasUi);
-    dataAPI.setCosechas(cosechasUi);
+    if (banError) {
+      console.error(banError);
+      mostrarMensaje(`No se pudieron cargar bandejas: ${banError.message}`);
+    } else {
+      setBandejas(ban || []);
+    }
+
     setCargando(false);
   };
 
   const guardarCosecha = async () => {
     if (!nuevaCosecha.lote.trim()) {
-      alert('El lote es obligatorio.');
+      mostrarMensaje('El lote es obligatorio.');
       return;
     }
 
@@ -92,68 +110,43 @@ export default function Trazabilidad() {
     const totalKg = kgPremium + kgComercial + kgMerma;
 
     if (totalKg <= 0) {
-      alert('Registra al menos un valor de kg premium, comercial o merma.');
+      mostrarMensaje('Registra al menos un valor de kg premium, comercial o merma.');
       return;
     }
 
     setGuardando(true);
 
-    const payloadDb = {
-      fecha: nuevaCosecha.fecha,
-      lote: nuevaCosecha.lote.trim(),
-      ciclo_id: nuevaCosecha.cicloId.trim() || 'C1',
-      bandeja_id: nuevaCosecha.bandejaId.trim() || null,
-      vuelta: Number(nuevaCosecha.vuelta || 1),
-      estante: nuevaCosecha.estante.trim() || null,
-      kg_premium: kgPremium,
-      kg_comercial: kgComercial,
-      kg_merma: kgMerma,
-      cliente: nuevaCosecha.cliente.trim() || null,
-      destino: nuevaCosecha.destino.trim() || null,
-      notas: nuevaCosecha.notas.trim() || null,
-    };
-
     const supabase = getSupabaseBrowserClient();
 
     if (!supabase) {
-      const nuevaLocal = {
-        id: `cos-${Date.now()}`,
-        ...nuevaCosecha,
-        kgPremium,
-        kgComercial,
-        kgMerma,
-      };
-
-      const nuevas = [nuevaLocal, ...cosechas];
-      setCosechas(nuevas);
-      dataAPI.setCosechas(nuevas);
+      mostrarMensaje('Supabase no está configurado. No se puede guardar en producción.');
       setGuardando(false);
       return;
     }
 
-    const { data, error } = await supabase
-      .from('cosechas')
-      .insert(payloadDb)
-      .select()
-      .single();
+    const { error } = await supabase.rpc('registrar_cosecha_tx', {
+      p_fecha: nuevaCosecha.fecha,
+      p_lote: nuevaCosecha.lote.trim(),
+      p_ciclo_id: nuevaCosecha.cicloId.trim() || 'C1',
+      p_bandeja_id: nuevaCosecha.bandejaId || null,
+      p_vuelta: Number(nuevaCosecha.vuelta || 1),
+      p_estante: nuevaCosecha.estante.trim() || null,
+      p_kg_premium: kgPremium,
+      p_kg_comercial: kgComercial,
+      p_kg_merma: kgMerma,
+      p_cliente: nuevaCosecha.cliente.trim() || null,
+      p_destino: nuevaCosecha.destino.trim() || null,
+      p_notas: nuevaCosecha.notas.trim() || null,
+    });
 
     if (error) {
       console.error(error);
-      alert(`No se pudo guardar la cosecha en Supabase: ${error.message}`);
+      mostrarMensaje(error.message);
       setGuardando(false);
       return;
     }
 
-    await registrarAuditLog({
-      accion: 'crear',
-      tabla: 'cosechas',
-      registroId: data.id,
-      descripcion: `Registro de cosecha ${payloadDb.lote} · Vuelta ${payloadDb.vuelta}`,
-      valoresNuevos: {
-        ...payloadDb,
-        totalKg,
-      },
-    });
+    mostrarMensaje('Cosecha registrada correctamente.');
 
     setNuevaCosecha({
       ...nuevaCosecha,
@@ -167,46 +160,26 @@ export default function Trazabilidad() {
       notas: '',
     });
 
-    await cargarCosechas();
+    await cargarDatos();
     setGuardando(false);
   };
 
   const eliminarCosecha = async (id: string) => {
-    const cosecha = cosechas.find((c) => c.id === id);
-    if (!cosecha) return;
-
-    const confirmar = window.confirm(`¿Eliminar cosecha del lote ${cosecha.lote}?`);
+    const confirmar = window.confirm('¿Eliminar este registro de cosecha?');
     if (!confirmar) return;
 
     const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
 
-    if (!supabase) {
-      const nuevas = cosechas.filter((c) => c.id !== id);
-      setCosechas(nuevas);
-      dataAPI.setCosechas(nuevas);
-      return;
-    }
-
-    const { error } = await supabase
-      .from('cosechas')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('cosechas').delete().eq('id', id);
 
     if (error) {
-      console.error(error);
-      alert(`No se pudo eliminar la cosecha: ${error.message}`);
+      mostrarMensaje(error.message);
       return;
     }
 
-    await registrarAuditLog({
-      accion: 'eliminar',
-      tabla: 'cosechas',
-      registroId: id,
-      descripcion: `Eliminación de cosecha ${cosecha.lote}`,
-      valoresAnteriores: cosecha,
-    });
-
-    await cargarCosechas();
+    mostrarMensaje('Cosecha eliminada correctamente.');
+    await cargarDatos();
   };
 
   const totalPremium = cosechas.reduce((s, c) => s + Number(c.kgPremium || 0), 0);
@@ -225,12 +198,12 @@ export default function Trazabilidad() {
           </div>
           <h1 className="font-serif text-4xl text-tierra-900 mb-2">Lotes & Cosechas</h1>
           <p className="text-tierra-600">
-            Registro transaccional de cada cosecha por lote, vuelta, estante y bandeja.
+            Registro transaccional por lote, vuelta, estante y bandeja.
           </p>
         </div>
 
         <button
-          onClick={cargarCosechas}
+          onClick={cargarDatos}
           disabled={cargando}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-micelio-200 bg-white text-tierra-700 hover:bg-micelio-50 text-sm disabled:opacity-60"
         >
@@ -238,6 +211,12 @@ export default function Trazabilidad() {
           Refrescar
         </button>
       </header>
+
+      {mensaje && (
+        <div className="rounded-xl border border-micelio-200 bg-micelio-50 px-4 py-3 text-sm text-tierra-800">
+          {mensaje}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KPI label="Total cosechado" value={`${totalKg.toFixed(1)} kg`} />
@@ -253,34 +232,52 @@ export default function Trazabilidad() {
             <h3 className="font-serif text-lg text-tierra-900 mb-4">Nueva cosecha</h3>
 
             <div className="space-y-3">
-              <div>
-                <label className="text-xs text-tierra-600 uppercase tracking-wider">Fecha</label>
-                <input
-                  type="date"
-                  value={nuevaCosecha.fecha}
-                  onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, fecha: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm"
+              <Input
+                type="date"
+                label="Fecha"
+                value={nuevaCosecha.fecha}
+                onChange={(v: string) => setNuevaCosecha({ ...nuevaCosecha, fecha: v })}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Ciclo"
+                  value={nuevaCosecha.cicloId}
+                  onChange={(v: string) => setNuevaCosecha({ ...nuevaCosecha, cicloId: v })}
+                />
+
+                <Input
+                  label="Lote"
+                  value={nuevaCosecha.lote}
+                  onChange={(v: string) => setNuevaCosecha({ ...nuevaCosecha, lote: v })}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-tierra-600 uppercase tracking-wider">Ciclo</label>
-                  <input
-                    value={nuevaCosecha.cicloId}
-                    onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, cicloId: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-tierra-600 uppercase tracking-wider">Lote</label>
-                  <input
-                    value={nuevaCosecha.lote}
-                    onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, lote: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm"
-                  />
-                </div>
+              <div>
+                <label className="text-xs text-tierra-600 uppercase tracking-wider">Bandeja registrada</label>
+                <select
+                  value={nuevaCosecha.bandejaId}
+                  onChange={(e) => {
+                    const bandeja = bandejas.find((b) => b.id === e.target.value);
+                    setNuevaCosecha({
+                      ...nuevaCosecha,
+                      bandejaId: e.target.value,
+                      lote: bandeja?.lote || nuevaCosecha.lote,
+                      cicloId: bandeja?.ciclo_id || nuevaCosecha.cicloId,
+                      estante: bandeja?.estanterias?.codigo
+                        ? `${bandeja.estanterias.codigo}-N${bandeja.nivel || ''}-P${bandeja.posicion || ''}`
+                        : nuevaCosecha.estante,
+                    });
+                  }}
+                  className="w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm"
+                >
+                  <option value="">Sin bandeja / manual</option>
+                  {bandejas.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.codigo || b.id} · {b.estanterias?.codigo || b.estanteria_id || 'Sin estantería'} · N{b.nivel || '-'} P{b.posicion || '-'}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -297,81 +294,55 @@ export default function Trazabilidad() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-xs text-tierra-600 uppercase tracking-wider">Bandeja ID</label>
-                  <input
-                    value={nuevaCosecha.bandejaId}
-                    onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, bandejaId: e.target.value })}
-                    placeholder="B-001"
-                    className="w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-tierra-600 uppercase tracking-wider">Estante / bandeja</label>
-                <input
+                <Input
+                  label="Estante / ubicación"
                   value={nuevaCosecha.estante}
-                  onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, estante: e.target.value })}
-                  placeholder="Ej: E1-B5"
-                  className="w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm"
+                  onChange={(v: string) => setNuevaCosecha({ ...nuevaCosecha, estante: v })}
+                  placeholder="Ej: E1-N1-P1"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-xs text-tierra-600 uppercase tracking-wider">Premium kg</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={nuevaCosecha.kgPremium}
-                    onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, kgPremium: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border border-green-200 bg-green-50 rounded-lg text-sm"
-                  />
-                </div>
+                <Input
+                  type="number"
+                  step="0.1"
+                  label="Premium kg"
+                  value={nuevaCosecha.kgPremium}
+                  onChange={(v: string) => setNuevaCosecha({ ...nuevaCosecha, kgPremium: v })}
+                  className="border-green-200 bg-green-50"
+                />
 
-                <div>
-                  <label className="text-xs text-tierra-600 uppercase tracking-wider">Comerc. kg</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={nuevaCosecha.kgComercial}
-                    onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, kgComercial: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm"
-                  />
-                </div>
+                <Input
+                  type="number"
+                  step="0.1"
+                  label="Comerc. kg"
+                  value={nuevaCosecha.kgComercial}
+                  onChange={(v: string) => setNuevaCosecha({ ...nuevaCosecha, kgComercial: v })}
+                />
 
-                <div>
-                  <label className="text-xs text-tierra-600 uppercase tracking-wider">Merma kg</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={nuevaCosecha.kgMerma}
-                    onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, kgMerma: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 border border-red-200 bg-red-50 rounded-lg text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-tierra-600 uppercase tracking-wider">Cliente</label>
-                <input
-                  value={nuevaCosecha.cliente}
-                  onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, cliente: e.target.value })}
-                  placeholder="Ej: Restaurante X, CBI"
-                  className="w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm"
+                <Input
+                  type="number"
+                  step="0.1"
+                  label="Merma kg"
+                  value={nuevaCosecha.kgMerma}
+                  onChange={(v: string) => setNuevaCosecha({ ...nuevaCosecha, kgMerma: v })}
+                  className="border-red-200 bg-red-50"
                 />
               </div>
 
-              <div>
-                <label className="text-xs text-tierra-600 uppercase tracking-wider">Destino</label>
-                <input
-                  value={nuevaCosecha.destino}
-                  onChange={(e) => setNuevaCosecha({ ...nuevaCosecha, destino: e.target.value })}
-                  placeholder="Ej: D2C, HoReCa, CBI, merma"
-                  className="w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm"
-                />
-              </div>
+              <Input
+                label="Cliente"
+                value={nuevaCosecha.cliente}
+                onChange={(v: string) => setNuevaCosecha({ ...nuevaCosecha, cliente: v })}
+                placeholder="Ej: Restaurante X, CBI"
+              />
+
+              <Input
+                label="Destino"
+                value={nuevaCosecha.destino}
+                onChange={(v: string) => setNuevaCosecha({ ...nuevaCosecha, destino: v })}
+                placeholder="Ej: D2C, HoReCa, CBI, merma"
+              />
 
               <div>
                 <label className="text-xs text-tierra-600 uppercase tracking-wider">Notas</label>
@@ -405,7 +376,6 @@ export default function Trazabilidad() {
               <div className="text-center py-12 text-tierra-500">
                 <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>No hay cosechas registradas aún.</p>
-                <p className="text-xs mt-1">Primera cosecha esperada: 30/04/2026</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -417,6 +387,7 @@ export default function Trazabilidad() {
                       <div className="flex items-center justify-between mb-2 gap-3">
                         <div className="font-medium text-tierra-900">
                           {c.cicloId || 'C1'} · {c.lote} · Vuelta {c.vuelta}
+                          {c.bandejaId && <span className="text-tierra-500 font-normal"> · Bandeja {c.bandejaId}</span>}
                           {c.estante && <span className="text-tierra-500 font-normal"> · {c.estante}</span>}
                         </div>
 
@@ -480,6 +451,22 @@ function KPI({ label, value, color, highlight }: any) {
     <div className={`rounded-2xl p-4 border ${highlight && color ? colorMap[color] : 'bg-white border-micelio-200'}`}>
       <div className="text-xs text-tierra-600 uppercase tracking-wider mb-1">{label}</div>
       <div className="font-serif text-2xl text-tierra-900">{value}</div>
+    </div>
+  );
+}
+
+function Input({ label, value, onChange, type = 'text', placeholder = '', step, className = '' }: any) {
+  return (
+    <div>
+      <label className="text-xs text-tierra-600 uppercase tracking-wider">{label}</label>
+      <input
+        type={type}
+        step={step}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full mt-1 px-3 py-2 border border-micelio-200 rounded-lg text-sm ${className}`}
+      />
     </div>
   );
 }
