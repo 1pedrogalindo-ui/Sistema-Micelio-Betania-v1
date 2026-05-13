@@ -516,17 +516,17 @@ export default function Inventario() {
 
       <div className="rounded-2xl border border-micelio-200 bg-white shadow-card overflow-hidden">
         <div className="overflow-x-auto max-h-[68vh]">
-          <table className="w-full min-w-[1480px] table-fixed border-separate border-spacing-0">
+          <table className="w-full min-w-[1360px] table-fixed border-separate border-spacing-0">
             <colgroup>
-              <col className="w-[360px]" />
-              <col className="w-[190px]" />
-              <col className="w-[110px]" />
+              <col className="w-[350px]" />
+              <col className="w-[175px]" />
+              <col className="w-[95px]" />
+              <col className="w-[115px]" />
+              <col className="w-[115px]" />
               <col className="w-[130px]" />
-              <col className="w-[130px]" />
-              <col className="w-[140px]" />
-              <col className="w-[170px]" />
+              <col className="w-[155px]" />
+              <col className="w-[135px]" />
               <col className="w-[150px]" />
-              <col className="w-[190px]" />
             </colgroup>
 
             <thead className="sticky top-0 z-10 bg-micelio-50 shadow-sm">
@@ -539,7 +539,7 @@ export default function Inventario() {
                 <th className="text-center px-4 py-4">Urgencia</th>
                 <th className="text-center px-4 py-4">Deadline</th>
                 <th className="text-center px-4 py-4">Estado</th>
-                <th className="text-center px-4 py-4">Acciones</th>
+                <th className="sticky right-0 z-20 bg-micelio-50 text-center px-4 py-4 shadow-[-8px_0_12px_rgba(37,29,23,0.05)]">Acciones</th>
               </tr>
             </thead>
 
@@ -558,7 +558,7 @@ export default function Inventario() {
                       <input
                         value={item.item}
                         onChange={(e) => actualizarCampo(item.id, 'item', e.target.value)}
-                        className="h-10 w-full min-w-[320px] rounded-xl border border-micelio-200 bg-white px-3 text-sm font-medium text-tierra-900 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                        className="h-10 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm font-medium text-tierra-900 focus:outline-none focus:ring-2 focus:ring-bosque-500"
                       />
                     </td>
 
@@ -566,7 +566,7 @@ export default function Inventario() {
                       <input
                         value={item.categoria}
                         onChange={(e) => actualizarCampo(item.id, 'categoria', e.target.value)}
-                        className="h-10 w-full min-w-[150px] rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                        className="h-10 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
                       />
                     </td>
 
@@ -635,7 +635,7 @@ export default function Inventario() {
                       </select>
                     </td>
 
-                    <td className="px-4 py-3 border-t border-micelio-100">
+                    <td className="sticky right-0 z-[2] border-t border-micelio-100 bg-inherit px-4 py-3 shadow-[-8px_0_12px_rgba(37,29,23,0.05)]">
                       <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => guardarItem(item.id)}
@@ -643,7 +643,7 @@ export default function Inventario() {
                           className="inline-flex h-10 items-center gap-2 rounded-xl bg-bosque-600 px-3 text-sm font-medium text-white hover:bg-bosque-700 disabled:opacity-60"
                         >
                           <Save className="w-4 h-4" />
-                          {guardandoId === item.id ? 'Guardando' : 'Guardar'}
+                          {guardandoId === item.id ? '...' : 'Guardar'}
                         </button>
 
                         <button
