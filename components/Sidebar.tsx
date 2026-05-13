@@ -1,6 +1,18 @@
 'use client';
 
-import { LayoutDashboard, Calendar, Users, Package, ClipboardList, GitBranch, DollarSign, Leaf } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  Package,
+  ClipboardList,
+  GitBranch,
+  DollarSign,
+  Leaf,
+  DatabaseZap,
+  Brain,
+  Briefcase,
+} from 'lucide-react';
 
 const items = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -10,6 +22,9 @@ const items = [
   { id: 'registros', label: 'Registros', icon: ClipboardList },
   { id: 'trazabilidad', label: 'Trazabilidad', icon: GitBranch },
   { id: 'costos', label: 'Costos & ROI', icon: DollarSign },
+  { id: 'integraciones', label: 'Integraciones', icon: DatabaseZap },
+  { id: 'inteligencia', label: 'Inteligencia', icon: Brain },
+  { id: 'inversionistas', label: 'Inversionistas', icon: Briefcase },
 ];
 
 export default function Sidebar({
@@ -33,7 +48,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      <nav className="flex-1 p-3">
+      <nav className="flex-1 p-3 overflow-y-auto">
         <ul className="space-y-1">
           {items.map((item) => {
             const Icon = item.icon;

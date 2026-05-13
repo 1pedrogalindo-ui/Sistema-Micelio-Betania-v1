@@ -9,6 +9,9 @@ import Inventario from '@/components/Inventario';
 import Registros from '@/components/Registros';
 import Trazabilidad from '@/components/Trazabilidad';
 import Costos from '@/components/Costos';
+import Inversionistas from '@/components/Inversionistas';
+import Inteligencia from '@/components/Inteligencia';
+import Integraciones from '@/components/Integraciones';
 import AuthGate from '@/components/AuthGate';
 
 export default function Home() {
@@ -40,6 +43,9 @@ export default function Home() {
             {seccion === 'registros' && <Registros />}
             {seccion === 'trazabilidad' && <Trazabilidad />}
             {seccion === 'costos' && <Costos />}
+            {seccion === 'integraciones' && <Integraciones />}
+            {seccion === 'inteligencia' && <Inteligencia />}
+            {seccion === 'inversionistas' && <Inversionistas />}
           </div>
         </main>
       </div>
