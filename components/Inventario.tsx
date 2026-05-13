@@ -8,9 +8,15 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const urgenciaColor: Record<string, string> = {
-  critica: 'bg-red-100 text-red-700 border-red-200',
-  alta: 'bg-amber-100 text-amber-700 border-amber-200',
-  media: 'bg-blue-100 text-blue-700 border-blue-200',
+  critica: 'bg-red-50 text-red-700 border-red-200',
+  alta: 'bg-amber-50 text-amber-700 border-amber-200',
+  media: 'bg-blue-50 text-blue-700 border-blue-200',
+};
+
+const estadoColor: Record<string, string> = {
+  pendiente: 'bg-red-50 text-red-700 border-red-200',
+  pedido: 'bg-blue-50 text-blue-700 border-blue-200',
+  recibido: 'bg-green-50 text-green-700 border-green-200',
 };
 
 const estados = [
@@ -37,13 +43,13 @@ function crearIdDesdeTexto(texto: string) {
 
 export default function Inventario() {
   const [items, setItems] = useState<any[]>([]);
+  const [categoriasDb, setCategoriasDb] = useState<any[]>([]);
   const [filtroCategoria, setFiltroCategoria] = useState('todos');
   const [filtroUrgencia, setFiltroUrgencia] = useState('todos');
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [categoriasDb, setCategoriasDb] = useState<any[]>([]);
   const [modoCategoriaNueva, setModoCategoriaNueva] = useState(false);
 
   const [nuevoItem, setNuevoItem] = useState({
@@ -130,9 +136,10 @@ export default function Inventario() {
 
       return {
         ...i,
-        [campo]: campo === 'cantidad' || campo === 'precioUnit'
-          ? Number(valor || 0)
-          : valor,
+        [campo]:
+          campo === 'cantidad' || campo === 'precioUnit'
+            ? Number(valor || 0)
+            : valor,
       };
     });
 
@@ -146,7 +153,7 @@ export default function Inventario() {
     }
 
     if (!nuevoItem.categoria.trim()) {
-      mostrarMensaje('Escribe la categoría.');
+      mostrarMensaje('Selecciona o escribe una categoría.');
       return;
     }
 
@@ -162,7 +169,7 @@ export default function Inventario() {
     const supabase = getSupabaseBrowserClient();
 
     if (!supabase) {
-      mostrarMensaje('Supabase no está configurado. No se puede guardar en producción.');
+      mostrarMensaje('La base de datos no está configurada. No se puede guardar en producción.');
       return;
     }
 
@@ -197,8 +204,8 @@ export default function Inventario() {
       notas: '',
     });
 
-    setMostrarNuevo(false);
     setModoCategoriaNueva(false);
+    setMostrarNuevo(false);
     await cargarInventario();
   };
 
@@ -211,12 +218,17 @@ export default function Inventario() {
       return;
     }
 
+    if (!item.categoria?.trim()) {
+      mostrarMensaje('La categoría no puede estar vacía.');
+      return;
+    }
+
     setGuardandoId(id);
 
     const supabase = getSupabaseBrowserClient();
 
     if (!supabase) {
-      mostrarMensaje('Supabase no está configurado. No se puede guardar en producción.');
+      mostrarMensaje('La base de datos no está configurada. No se puede guardar en producción.');
       setGuardandoId(null);
       return;
     }
@@ -224,7 +236,7 @@ export default function Inventario() {
     const { error } = await supabase.rpc('actualizar_inventario_tx', {
       p_id: id,
       p_item: item.item.trim(),
-      p_categoria: item.categoria || null,
+      p_categoria: item.categoria.trim(),
       p_cantidad: Number(item.cantidad || 0),
       p_precio_unit: Number(item.precioUnit || 0),
       p_urgencia: item.urgencia || 'media',
@@ -255,7 +267,7 @@ export default function Inventario() {
     const supabase = getSupabaseBrowserClient();
 
     if (!supabase) {
-      mostrarMensaje('Supabase no está configurado.');
+      mostrarMensaje('La base de datos no está configurada.');
       return;
     }
 
@@ -273,7 +285,10 @@ export default function Inventario() {
     await cargarInventario();
   };
 
-  const categorias = ['todos', ...Array.from(new Set(items.map((i) => i.categoria).filter(Boolean)))];
+  const categoriasFiltro = [
+    'todos',
+    ...Array.from(new Set(items.map((i) => i.categoria).filter(Boolean))),
+  ];
 
   const itemsFiltrados = items.filter((i) => {
     if (filtroCategoria !== 'todos' && i.categoria !== filtroCategoria) return false;
@@ -281,10 +296,15 @@ export default function Inventario() {
     return true;
   });
 
-  const total = items.reduce((sum, i) => sum + Number(i.cantidad || 0) * Number(i.precioUnit || 0), 0);
+  const total = items.reduce(
+    (sum, i) => sum + Number(i.cantidad || 0) * Number(i.precioUnit || 0),
+    0
+  );
+
   const totalPendiente = items
     .filter((i) => i.estado === 'pendiente')
     .reduce((sum, i) => sum + Number(i.cantidad || 0) * Number(i.precioUnit || 0), 0);
+
   const totalCritico = items
     .filter((i) => i.urgencia === 'critica' && i.estado === 'pendiente')
     .reduce((sum, i) => sum + Number(i.cantidad || 0) * Number(i.precioUnit || 0), 0);
@@ -294,11 +314,11 @@ export default function Inventario() {
       <header className="flex items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-widest text-bosque-700 mb-2">
-            Compras & Inventario
+            Compras & Control Operativo
           </div>
           <h1 className="font-serif text-4xl text-tierra-900 mb-2">Inventario</h1>
           <p className="text-tierra-600">
-            {items.length} items · {items.filter((i) => i.estado === 'pendiente').length} pendientes · Guardado en Supabase
+            {items.length} items · {items.filter((i) => i.estado === 'pendiente').length} pendientes · Datos centralizados y auditados
           </p>
         </div>
 
@@ -341,7 +361,14 @@ export default function Inventario() {
           </div>
 
           <div className="grid md:grid-cols-4 gap-4">
-            <Input label="Item" value={nuevoItem.item} onChange={(v: string) => setNuevoItem({ ...nuevoItem, item: v })} placeholder="Ej: Guantes nitrilo" className="md:col-span-2" />
+            <Input
+              label="Item"
+              value={nuevoItem.item}
+              onChange={(v: string) => setNuevoItem({ ...nuevoItem, item: v })}
+              placeholder="Ej: Guantes nitrilo"
+              className="md:col-span-2"
+            />
+
             <div>
               <label className="text-xs uppercase tracking-wider text-tierra-600">Categoría</label>
 
@@ -356,11 +383,13 @@ export default function Inventario() {
                       setNuevoItem({ ...nuevoItem, categoria: e.target.value });
                     }
                   }}
-                  className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
+                  className="w-full mt-1 h-10 px-3 rounded-xl border border-micelio-200 bg-white text-sm text-tierra-800"
                 >
                   <option value="">Seleccionar categoría</option>
                   {categoriasDb.map((cat) => (
-                    <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+                    <option key={cat.id} value={cat.nombre}>
+                      {cat.nombre}
+                    </option>
                   ))}
                   <option value="__nueva__">+ Nueva categoría</option>
                 </select>
@@ -369,8 +398,8 @@ export default function Inventario() {
                   <input
                     value={nuevoItem.categoria}
                     onChange={(e) => setNuevoItem({ ...nuevoItem, categoria: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-micelio-200"
-                    placeholder="Escribir nueva categoría"
+                    className="w-full h-10 px-3 rounded-xl border border-micelio-200 text-sm"
+                    placeholder="Nueva categoría"
                   />
                   <button
                     type="button"
@@ -378,7 +407,7 @@ export default function Inventario() {
                       setModoCategoriaNueva(false);
                       setNuevoItem({ ...nuevoItem, categoria: '' });
                     }}
-                    className="px-3 py-2 rounded-lg border border-micelio-200 text-xs text-tierra-700"
+                    className="px-3 rounded-xl border border-micelio-200 text-xs text-tierra-700 hover:bg-micelio-50"
                   >
                     Cancelar
                   </button>
@@ -386,20 +415,49 @@ export default function Inventario() {
               )}
             </div>
 
-            <Select label="Urgencia" value={nuevoItem.urgencia} onChange={(v: string) => setNuevoItem({ ...nuevoItem, urgencia: v })} options={urgencias} />
+            <Select
+              label="Urgencia"
+              value={nuevoItem.urgencia}
+              onChange={(v: string) => setNuevoItem({ ...nuevoItem, urgencia: v })}
+              options={urgencias}
+            />
 
-            <Input type="number" label="Cantidad" value={nuevoItem.cantidad} onChange={(v: string) => setNuevoItem({ ...nuevoItem, cantidad: Number(v || 0) })} />
-            <Input type="number" step="0.01" label="Precio unitario" value={nuevoItem.precioUnit} onChange={(v: string) => setNuevoItem({ ...nuevoItem, precioUnit: Number(v || 0) })} />
+            <Input
+              type="number"
+              label="Cantidad"
+              value={nuevoItem.cantidad}
+              onChange={(v: string) => setNuevoItem({ ...nuevoItem, cantidad: Number(v || 0) })}
+            />
+
+            <Input
+              type="number"
+              step="0.01"
+              label="Precio unitario"
+              value={nuevoItem.precioUnit}
+              onChange={(v: string) => setNuevoItem({ ...nuevoItem, precioUnit: Number(v || 0) })}
+            />
 
             <div>
               <label className="text-xs uppercase tracking-wider text-tierra-600">Total</label>
-              <div className="mt-1 px-3 py-2 rounded-lg bg-micelio-50 border border-micelio-200 font-medium text-tierra-900">
+              <div className="mt-1 h-10 flex items-center rounded-xl bg-micelio-50 border border-micelio-200 px-3 font-semibold text-tierra-900">
                 ${(Number(nuevoItem.cantidad || 0) * Number(nuevoItem.precioUnit || 0)).toFixed(2)}
               </div>
             </div>
 
-            <Input type="date" label="Deadline" value={nuevoItem.fechaLimite} onChange={(v: string) => setNuevoItem({ ...nuevoItem, fechaLimite: v })} />
-            <Input label="Notas" value={nuevoItem.notas} onChange={(v: string) => setNuevoItem({ ...nuevoItem, notas: v })} placeholder="Opcional" className="md:col-span-4" />
+            <Input
+              type="date"
+              label="Deadline"
+              value={nuevoItem.fechaLimite}
+              onChange={(v: string) => setNuevoItem({ ...nuevoItem, fechaLimite: v })}
+            />
+
+            <Input
+              label="Notas"
+              value={nuevoItem.notas}
+              onChange={(v: string) => setNuevoItem({ ...nuevoItem, notas: v })}
+              placeholder="Opcional"
+              className="md:col-span-4"
+            />
           </div>
 
           <div className="flex justify-end mt-4">
@@ -422,14 +480,14 @@ export default function Inventario() {
 
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex flex-wrap gap-2">
-          {categorias.map((cat) => (
+          {categoriasFiltro.map((cat) => (
             <button
               key={cat}
               onClick={() => setFiltroCategoria(cat)}
               className={`px-3 py-1.5 rounded-full text-xs transition capitalize ${
                 filtroCategoria === cat
                   ? 'bg-bosque-600 text-white'
-                  : 'bg-white text-tierra-700 border border-micelio-200'
+                  : 'bg-white text-tierra-700 border border-micelio-200 hover:bg-micelio-50'
               }`}
             >
               {cat}
@@ -447,7 +505,7 @@ export default function Inventario() {
               className={`px-3 py-1.5 rounded-full text-xs transition capitalize ${
                 filtroUrgencia === u
                   ? 'bg-tierra-800 text-white'
-                  : 'bg-white text-tierra-700 border border-micelio-200'
+                  : 'bg-white text-tierra-700 border border-micelio-200 hover:bg-micelio-50'
               }`}
             >
               {u}
@@ -456,149 +514,149 @@ export default function Inventario() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-micelio-200 overflow-x-auto">
-        <table className="w-full min-w-[1150px]">
-          <thead className="bg-micelio-50 border-b border-micelio-200">
-            <tr className="text-xs uppercase tracking-wider text-tierra-600">
-              <th className="text-left p-4">Item</th>
-              <th className="text-left p-4">Categoría</th>
-              <th className="text-center p-4">Cant.</th>
-              <th className="text-right p-4">P. Unit</th>
-              <th className="text-right p-4">Total</th>
-              <th className="text-center p-4">Urgencia</th>
-              <th className="text-center p-4">Deadline</th>
-              <th className="text-center p-4">Estado</th>
-              <th className="text-center p-4">Acciones</th>
-            </tr>
-          </thead>
+      <div className="rounded-2xl border border-micelio-200 bg-white shadow-card overflow-hidden">
+        <div className="overflow-x-auto max-h-[68vh]">
+          <table className="w-full min-w-[1180px] border-separate border-spacing-0">
+            <thead className="sticky top-0 z-10 bg-micelio-50 shadow-sm">
+              <tr className="text-xs uppercase tracking-[0.16em] text-tierra-600">
+                <th className="text-left px-4 py-4 w-[270px]">Item</th>
+                <th className="text-left px-4 py-4 w-[170px]">Categoría</th>
+                <th className="text-center px-4 py-4 w-[100px]">Cant.</th>
+                <th className="text-right px-4 py-4 w-[120px]">P. Unit</th>
+                <th className="text-right px-4 py-4 w-[120px]">Total</th>
+                <th className="text-center px-4 py-4 w-[130px]">Urgencia</th>
+                <th className="text-center px-4 py-4 w-[150px]">Deadline</th>
+                <th className="text-center px-4 py-4 w-[130px]">Estado</th>
+                <th className="text-center px-4 py-4 w-[150px]">Acciones</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            {itemsFiltrados.map((item) => {
-              const cantidad = Number(item.cantidad || 0);
-              const precioUnit = Number(item.precioUnit || 0);
-              const totalItem = cantidad * precioUnit;
+            <tbody>
+              {itemsFiltrados.map((item) => {
+                const cantidad = Number(item.cantidad || 0);
+                const precioUnit = Number(item.precioUnit || 0);
+                const totalItem = cantidad * precioUnit;
 
-              return (
-                <tr key={item.id} className="border-b border-micelio-100 hover:bg-micelio-50/50">
-                  <td className="p-4 text-sm text-tierra-900 font-medium">
-                    <input
-                      value={item.item}
-                      onChange={(e) => actualizarCampo(item.id, 'item', e.target.value)}
-                      className="w-52 px-2 py-1.5 rounded-lg border border-micelio-200 bg-white"
-                    />
-                  </td>
+                return (
+                  <tr
+                    key={item.id}
+                    className="border-b border-micelio-100 odd:bg-white even:bg-[#FCFBF8] hover:bg-micelio-50/70 transition-colors"
+                  >
+                    <td className="px-4 py-3 border-t border-micelio-100">
+                      <input
+                        value={item.item}
+                        onChange={(e) => actualizarCampo(item.id, 'item', e.target.value)}
+                        className="h-10 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm font-medium text-tierra-900 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                      />
+                    </td>
 
-                  <td className="p-4 text-sm text-tierra-600">
-                    <input
-                      value={item.categoria}
-                      onChange={(e) => actualizarCampo(item.id, 'categoria', e.target.value)}
-                      className="w-32 px-2 py-1.5 rounded-lg border border-micelio-200 bg-white"
-                    />
-                  </td>
+                    <td className="px-4 py-3 border-t border-micelio-100">
+                      <input
+                        value={item.categoria}
+                        onChange={(e) => actualizarCampo(item.id, 'categoria', e.target.value)}
+                        className="h-10 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                      />
+                    </td>
 
-                  <td className="p-4 text-sm text-center text-tierra-700">
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={cantidad}
-                      onChange={(e) => actualizarCampo(item.id, 'cantidad', e.target.value)}
-                      className="w-20 text-center px-2 py-1.5 rounded-lg border border-micelio-200 bg-white focus:outline-none focus:ring-2 focus:ring-bosque-500"
-                    />
-                  </td>
+                    <td className="px-4 py-3 border-t border-micelio-100 text-center">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={cantidad}
+                        onChange={(e) => actualizarCampo(item.id, 'cantidad', e.target.value)}
+                        className="h-10 w-20 rounded-xl border border-micelio-200 bg-white px-2 text-center text-sm text-tierra-800 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                      />
+                    </td>
 
-                  <td className="p-4 text-sm text-right text-tierra-700">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={precioUnit}
-                      onChange={(e) => actualizarCampo(item.id, 'precioUnit', e.target.value)}
-                      className="w-24 text-right px-2 py-1.5 rounded-lg border border-micelio-200 bg-white focus:outline-none focus:ring-2 focus:ring-bosque-500"
-                    />
-                  </td>
+                    <td className="px-4 py-3 border-t border-micelio-100 text-right">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={precioUnit}
+                        onChange={(e) => actualizarCampo(item.id, 'precioUnit', e.target.value)}
+                        className="h-10 w-24 rounded-xl border border-micelio-200 bg-white px-2 text-right text-sm text-tierra-800 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                      />
+                    </td>
 
-                  <td className="p-4 text-sm text-right font-semibold text-tierra-900">
-                    ${totalItem.toFixed(2)}
-                  </td>
-
-                  <td className="p-4 text-center">
-                    <select
-                      value={item.urgencia}
-                      onChange={(e) => actualizarCampo(item.id, 'urgencia', e.target.value)}
-                      className={`text-xs px-2 py-1 rounded-full border ${urgenciaColor[item.urgencia] || urgenciaColor.media}`}
-                    >
-                      {urgencias.map((u) => (
-                        <option key={u.id} value={u.id}>{u.label}</option>
-                      ))}
-                    </select>
-                  </td>
-
-                  <td className="p-4 text-xs text-center text-tierra-600">
-                    <input
-                      type="date"
-                      value={item.fechaLimite || ''}
-                      onChange={(e) => actualizarCampo(item.id, 'fechaLimite', e.target.value)}
-                      className="px-2 py-1.5 rounded-lg border border-micelio-200 bg-white"
-                    />
-                    {item.fechaLimite && (
-                      <div className="mt-1">
-                        {format(parseISO(item.fechaLimite), "d MMM", { locale: es })}
+                    <td className="px-4 py-3 border-t border-micelio-100 text-right">
+                      <div className="inline-flex h-10 min-w-[92px] items-center justify-end rounded-xl bg-micelio-50 border border-micelio-200 px-3 text-sm font-semibold text-tierra-900">
+                        ${totalItem.toFixed(2)}
                       </div>
-                    )}
-                  </td>
+                    </td>
 
-                  <td className="p-4 text-center">
-                    <select
-                      value={item.estado}
-                      onChange={(e) => actualizarCampo(item.id, 'estado', e.target.value)}
-                      className={`text-xs px-2 py-1 rounded-full border ${
-                        item.estado === 'recibido'
-                          ? 'bg-green-100 text-green-700 border-green-200'
-                          : item.estado === 'pedido'
-                          ? 'bg-blue-100 text-blue-700 border-blue-200'
-                          : 'bg-red-100 text-red-700 border-red-200'
-                      }`}
-                    >
-                      {estados.map((e) => (
-                        <option key={e.id} value={e.id}>{e.label}</option>
-                      ))}
-                    </select>
-                  </td>
-
-                  <td className="p-4">
-                    <div className="flex justify-center gap-2">
-                      <button
-                        onClick={() => guardarItem(item.id)}
-                        disabled={guardandoId === item.id}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-bosque-600 text-white text-xs hover:bg-bosque-700 disabled:opacity-60"
+                    <td className="px-4 py-3 border-t border-micelio-100 text-center">
+                      <select
+                        value={item.urgencia}
+                        onChange={(e) => actualizarCampo(item.id, 'urgencia', e.target.value)}
+                        className={`h-10 min-w-[110px] rounded-full border px-3 text-sm font-medium focus:outline-none ${urgenciaColor[item.urgencia] || urgenciaColor.media}`}
                       >
-                        <Save className="w-3.5 h-3.5" />
-                        {guardandoId === item.id ? 'Guardando' : 'Guardar'}
-                      </button>
+                        {urgencias.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
 
-                      <button
-                        onClick={() => eliminarItem(item.id)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 border border-red-200 text-xs hover:bg-red-100"
+                    <td className="px-4 py-3 border-t border-micelio-100 text-center">
+                      <input
+                        type="date"
+                        value={item.fechaLimite || ''}
+                        onChange={(e) => actualizarCampo(item.id, 'fechaLimite', e.target.value)}
+                        className="h-10 rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                      />
+                    </td>
+
+                    <td className="px-4 py-3 border-t border-micelio-100 text-center">
+                      <select
+                        value={item.estado}
+                        onChange={(e) => actualizarCampo(item.id, 'estado', e.target.value)}
+                        className={`h-10 min-w-[110px] rounded-full border px-3 text-sm font-medium focus:outline-none ${estadoColor[item.estado] || estadoColor.pendiente}`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Eliminar
-                      </button>
-                    </div>
+                        {estados.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    <td className="px-4 py-3 border-t border-micelio-100">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => guardarItem(item.id)}
+                          disabled={guardandoId === item.id}
+                          className="inline-flex h-10 items-center gap-2 rounded-xl bg-bosque-600 px-3 text-sm font-medium text-white hover:bg-bosque-700 disabled:opacity-60"
+                        >
+                          <Save className="w-4 h-4" />
+                          {guardandoId === item.id ? 'Guardando' : 'Guardar'}
+                        </button>
+
+                        <button
+                          onClick={() => eliminarItem(item.id)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {itemsFiltrados.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="p-10 text-center text-tierra-500">
+                    No hay items registrados en inventario.
                   </td>
                 </tr>
-              );
-            })}
-
-            {itemsFiltrados.length === 0 && (
-              <tr>
-                <td colSpan={9} className="p-8 text-center text-tierra-500">
-                  No hay items registrados en inventario.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -623,7 +681,7 @@ function Input({ label, value, onChange, type = 'text', placeholder = '', step, 
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
+        className="w-full mt-1 h-10 px-3 rounded-xl border border-micelio-200 text-sm"
       />
     </div>
   );
@@ -636,10 +694,12 @@ function Select({ label, value, onChange, options }: any) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
+        className="w-full mt-1 h-10 px-3 rounded-xl border border-micelio-200 text-sm"
       >
         {options.map((o: any) => (
-          <option key={o.id} value={o.id}>{o.label}</option>
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
         ))}
       </select>
     </div>
