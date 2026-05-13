@@ -59,7 +59,13 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     if (!supabase) return;
+
     await supabase.auth.signOut();
+    setSession(null);
+
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   };
 
   if (loading) {
