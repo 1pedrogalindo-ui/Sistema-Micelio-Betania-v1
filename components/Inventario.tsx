@@ -516,18 +516,30 @@ export default function Inventario() {
 
       <div className="rounded-2xl border border-micelio-200 bg-white shadow-card overflow-hidden">
         <div className="overflow-x-auto max-h-[68vh]">
-          <table className="w-full min-w-[1180px] border-separate border-spacing-0">
+          <table className="w-full min-w-[1480px] table-fixed border-separate border-spacing-0">
+            <colgroup>
+              <col className="w-[360px]" />
+              <col className="w-[190px]" />
+              <col className="w-[110px]" />
+              <col className="w-[130px]" />
+              <col className="w-[130px]" />
+              <col className="w-[140px]" />
+              <col className="w-[170px]" />
+              <col className="w-[150px]" />
+              <col className="w-[190px]" />
+            </colgroup>
+
             <thead className="sticky top-0 z-10 bg-micelio-50 shadow-sm">
               <tr className="text-xs uppercase tracking-[0.16em] text-tierra-600">
-                <th className="text-left px-4 py-4 w-[270px]">Item</th>
-                <th className="text-left px-4 py-4 w-[170px]">Categoría</th>
-                <th className="text-center px-4 py-4 w-[100px]">Cant.</th>
-                <th className="text-right px-4 py-4 w-[120px]">P. Unit</th>
-                <th className="text-right px-4 py-4 w-[120px]">Total</th>
-                <th className="text-center px-4 py-4 w-[130px]">Urgencia</th>
-                <th className="text-center px-4 py-4 w-[150px]">Deadline</th>
-                <th className="text-center px-4 py-4 w-[130px]">Estado</th>
-                <th className="text-center px-4 py-4 w-[150px]">Acciones</th>
+                <th className="text-left px-4 py-4">Item</th>
+                <th className="text-left px-4 py-4">Categoría</th>
+                <th className="text-center px-4 py-4">Cant.</th>
+                <th className="text-right px-4 py-4">P. Unit</th>
+                <th className="text-right px-4 py-4">Total</th>
+                <th className="text-center px-4 py-4">Urgencia</th>
+                <th className="text-center px-4 py-4">Deadline</th>
+                <th className="text-center px-4 py-4">Estado</th>
+                <th className="text-center px-4 py-4">Acciones</th>
               </tr>
             </thead>
 
@@ -546,7 +558,7 @@ export default function Inventario() {
                       <input
                         value={item.item}
                         onChange={(e) => actualizarCampo(item.id, 'item', e.target.value)}
-                        className="h-10 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm font-medium text-tierra-900 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                        className="h-10 w-full min-w-[320px] rounded-xl border border-micelio-200 bg-white px-3 text-sm font-medium text-tierra-900 focus:outline-none focus:ring-2 focus:ring-bosque-500"
                       />
                     </td>
 
@@ -554,7 +566,7 @@ export default function Inventario() {
                       <input
                         value={item.categoria}
                         onChange={(e) => actualizarCampo(item.id, 'categoria', e.target.value)}
-                        className="h-10 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                        className="h-10 w-full min-w-[150px] rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
                       />
                     </td>
 
