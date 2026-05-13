@@ -43,6 +43,8 @@ export default function Inventario() {
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [categoriasDb, setCategoriasDb] = useState<any[]>([]);
+  const [modoCategoriaNueva, setModoCategoriaNueva] = useState(false);
 
   const [nuevoItem, setNuevoItem] = useState({
     item: '',
@@ -89,11 +91,24 @@ export default function Inventario() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('inventario')
-      .select('*')
-      .order('categoria', { ascending: true })
-      .order('item', { ascending: true });
+    const [{ data, error }, { data: categoriasData, error: categoriasError }] = await Promise.all([
+      supabase
+        .from('inventario')
+        .select('*')
+        .order('categoria', { ascending: true })
+        .order('item', { ascending: true }),
+      supabase
+        .from('inventario_categorias')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre', { ascending: true }),
+    ]);
+
+    if (categoriasError) {
+      console.error(categoriasError);
+    } else {
+      setCategoriasDb(categoriasData || []);
+    }
 
     if (error) {
       console.error(error);
@@ -183,6 +198,7 @@ export default function Inventario() {
     });
 
     setMostrarNuevo(false);
+    setModoCategoriaNueva(false);
     await cargarInventario();
   };
 
@@ -326,7 +342,49 @@ export default function Inventario() {
 
           <div className="grid md:grid-cols-4 gap-4">
             <Input label="Item" value={nuevoItem.item} onChange={(v: string) => setNuevoItem({ ...nuevoItem, item: v })} placeholder="Ej: Guantes nitrilo" className="md:col-span-2" />
-            <Input label="Categoría" value={nuevoItem.categoria} onChange={(v: string) => setNuevoItem({ ...nuevoItem, categoria: v })} placeholder="Ej: EPP" />
+            <div>
+              <label className="text-xs uppercase tracking-wider text-tierra-600">Categoría</label>
+
+              {!modoCategoriaNueva ? (
+                <select
+                  value={nuevoItem.categoria}
+                  onChange={(e) => {
+                    if (e.target.value === '__nueva__') {
+                      setModoCategoriaNueva(true);
+                      setNuevoItem({ ...nuevoItem, categoria: '' });
+                    } else {
+                      setNuevoItem({ ...nuevoItem, categoria: e.target.value });
+                    }
+                  }}
+                  className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
+                >
+                  <option value="">Seleccionar categoría</option>
+                  {categoriasDb.map((cat) => (
+                    <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+                  ))}
+                  <option value="__nueva__">+ Nueva categoría</option>
+                </select>
+              ) : (
+                <div className="flex gap-2 mt-1">
+                  <input
+                    value={nuevoItem.categoria}
+                    onChange={(e) => setNuevoItem({ ...nuevoItem, categoria: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-micelio-200"
+                    placeholder="Escribir nueva categoría"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoCategoriaNueva(false);
+                      setNuevoItem({ ...nuevoItem, categoria: '' });
+                    }}
+                    className="px-3 py-2 rounded-lg border border-micelio-200 text-xs text-tierra-700"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </div>
 
             <Select label="Urgencia" value={nuevoItem.urgencia} onChange={(v: string) => setNuevoItem({ ...nuevoItem, urgencia: v })} options={urgencias} />
 
