@@ -132,7 +132,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
             </div>
 
             <p className="text-sm text-tierra-600 mb-6">
-              Ingresa con tu usuario autorizado para acceder al sistema operativo del piloto.
+              Ingresa con tu usuario autorizado para acceder al sistema.
             </p>
 
             <form onSubmit={login} className="space-y-4">
