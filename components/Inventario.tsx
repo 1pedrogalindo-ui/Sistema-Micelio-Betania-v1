@@ -514,161 +514,143 @@ export default function Inventario() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-micelio-200 bg-white shadow-card overflow-hidden">
-        <div className="overflow-x-auto max-h-[68vh]">
-          <table className="w-full min-w-[1360px] table-fixed border-separate border-spacing-0">
-            <colgroup>
-              <col className="w-[350px]" />
-              <col className="w-[175px]" />
-              <col className="w-[95px]" />
-              <col className="w-[115px]" />
-              <col className="w-[115px]" />
-              <col className="w-[130px]" />
-              <col className="w-[155px]" />
-              <col className="w-[135px]" />
-              <col className="w-[150px]" />
-            </colgroup>
-
-            <thead className="sticky top-0 z-10 bg-micelio-50 shadow-sm">
-              <tr className="text-xs uppercase tracking-[0.16em] text-tierra-600">
-                <th className="text-left px-4 py-4">Item</th>
-                <th className="text-left px-4 py-4">Categoría</th>
-                <th className="text-center px-4 py-4">Cant.</th>
-                <th className="text-right px-4 py-4">P. Unit</th>
-                <th className="text-right px-4 py-4">Total</th>
-                <th className="text-center px-4 py-4">Urgencia</th>
-                <th className="text-center px-4 py-4">Deadline</th>
-                <th className="text-center px-4 py-4">Estado</th>
-                <th className="sticky right-0 z-20 bg-micelio-50 text-center px-4 py-4 shadow-[-8px_0_12px_rgba(37,29,23,0.05)]">Acciones</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {itemsFiltrados.map((item) => {
-                const cantidad = Number(item.cantidad || 0);
-                const precioUnit = Number(item.precioUnit || 0);
-                const totalItem = cantidad * precioUnit;
-
-                return (
-                  <tr
-                    key={item.id}
-                    className="border-b border-micelio-100 odd:bg-white even:bg-[#FCFBF8] hover:bg-micelio-50/70 transition-colors"
-                  >
-                    <td className="px-4 py-3 border-t border-micelio-100">
-                      <input
-                        value={item.item}
-                        onChange={(e) => actualizarCampo(item.id, 'item', e.target.value)}
-                        className="h-10 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm font-medium text-tierra-900 focus:outline-none focus:ring-2 focus:ring-bosque-500"
-                      />
-                    </td>
-
-                    <td className="px-4 py-3 border-t border-micelio-100">
-                      <input
-                        value={item.categoria}
-                        onChange={(e) => actualizarCampo(item.id, 'categoria', e.target.value)}
-                        className="h-10 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
-                      />
-                    </td>
-
-                    <td className="px-4 py-3 border-t border-micelio-100 text-center">
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={cantidad}
-                        onChange={(e) => actualizarCampo(item.id, 'cantidad', e.target.value)}
-                        className="h-10 w-20 rounded-xl border border-micelio-200 bg-white px-2 text-center text-sm text-tierra-800 focus:outline-none focus:ring-2 focus:ring-bosque-500"
-                      />
-                    </td>
-
-                    <td className="px-4 py-3 border-t border-micelio-100 text-right">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={precioUnit}
-                        onChange={(e) => actualizarCampo(item.id, 'precioUnit', e.target.value)}
-                        className="h-10 w-24 rounded-xl border border-micelio-200 bg-white px-2 text-right text-sm text-tierra-800 focus:outline-none focus:ring-2 focus:ring-bosque-500"
-                      />
-                    </td>
-
-                    <td className="px-4 py-3 border-t border-micelio-100 text-right">
-                      <div className="inline-flex h-10 min-w-[92px] items-center justify-end rounded-xl bg-micelio-50 border border-micelio-200 px-3 text-sm font-semibold text-tierra-900">
-                        ${totalItem.toFixed(2)}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3 border-t border-micelio-100 text-center">
-                      <select
-                        value={item.urgencia}
-                        onChange={(e) => actualizarCampo(item.id, 'urgencia', e.target.value)}
-                        className={`h-10 min-w-[110px] rounded-full border px-3 text-sm font-medium focus:outline-none ${urgenciaColor[item.urgencia] || urgenciaColor.media}`}
-                      >
-                        {urgencias.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-
-                    <td className="px-4 py-3 border-t border-micelio-100 text-center">
-                      <input
-                        type="date"
-                        value={item.fechaLimite || ''}
-                        onChange={(e) => actualizarCampo(item.id, 'fechaLimite', e.target.value)}
-                        className="h-10 rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
-                      />
-                    </td>
-
-                    <td className="px-4 py-3 border-t border-micelio-100 text-center">
-                      <select
-                        value={item.estado}
-                        onChange={(e) => actualizarCampo(item.id, 'estado', e.target.value)}
-                        className={`h-10 min-w-[110px] rounded-full border px-3 text-sm font-medium focus:outline-none ${estadoColor[item.estado] || estadoColor.pendiente}`}
-                      >
-                        {estados.map((e) => (
-                          <option key={e.id} value={e.id}>
-                            {e.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-
-                    <td className="sticky right-0 z-[2] border-t border-micelio-100 bg-inherit px-4 py-3 shadow-[-8px_0_12px_rgba(37,29,23,0.05)]">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => guardarItem(item.id)}
-                          disabled={guardandoId === item.id}
-                          className="inline-flex h-10 items-center gap-2 rounded-xl bg-bosque-600 px-3 text-sm font-medium text-white hover:bg-bosque-700 disabled:opacity-60"
-                        >
-                          <Save className="w-4 h-4" />
-                          {guardandoId === item.id ? '...' : 'Guardar'}
-                        </button>
-
-                        <button
-                          onClick={() => eliminarItem(item.id)}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {itemsFiltrados.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="p-10 text-center text-tierra-500">
-                    No hay items registrados en inventario.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <div className="space-y-3">
+        <div className="hidden xl:grid grid-cols-[2.2fr_1fr_90px_110px_110px_130px_140px_130px_150px] gap-3 px-4 py-3 rounded-2xl bg-micelio-50 border border-micelio-200 text-[11px] uppercase tracking-[0.18em] text-tierra-600">
+          <div>Item</div>
+          <div>Categoría</div>
+          <div className="text-center">Cant.</div>
+          <div className="text-right">P. Unit</div>
+          <div className="text-right">Total</div>
+          <div className="text-center">Urgencia</div>
+          <div className="text-center">Deadline</div>
+          <div className="text-center">Estado</div>
+          <div className="text-center">Acciones</div>
         </div>
+
+        {itemsFiltrados.map((item) => {
+          const cantidad = Number(item.cantidad || 0);
+          const precioUnit = Number(item.precioUnit || 0);
+          const totalItem = cantidad * precioUnit;
+
+          return (
+            <div
+              key={item.id}
+              className="rounded-2xl border border-micelio-200 bg-white p-4 shadow-card hover:shadow-soft transition-shadow"
+            >
+              <div className="grid xl:grid-cols-[2.2fr_1fr_90px_110px_110px_130px_140px_130px_150px] gap-3 items-center">
+                <div>
+                  <label className="xl:hidden text-[10px] uppercase tracking-widest text-tierra-500">Item</label>
+                  <input
+                    value={item.item}
+                    onChange={(e) => actualizarCampo(item.id, 'item', e.target.value)}
+                    className="h-11 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm font-semibold text-tierra-900 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="xl:hidden text-[10px] uppercase tracking-widest text-tierra-500">Categoría</label>
+                  <input
+                    value={item.categoria}
+                    onChange={(e) => actualizarCampo(item.id, 'categoria', e.target.value)}
+                    className="h-11 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="xl:hidden text-[10px] uppercase tracking-widest text-tierra-500">Cant.</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={cantidad}
+                    onChange={(e) => actualizarCampo(item.id, 'cantidad', e.target.value)}
+                    className="h-11 w-full rounded-xl border border-micelio-200 bg-white px-2 text-center text-sm text-tierra-800 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="xl:hidden text-[10px] uppercase tracking-widest text-tierra-500">P. Unit</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={precioUnit}
+                    onChange={(e) => actualizarCampo(item.id, 'precioUnit', e.target.value)}
+                    className="h-11 w-full rounded-xl border border-micelio-200 bg-white px-2 text-right text-sm text-tierra-800 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="xl:hidden text-[10px] uppercase tracking-widest text-tierra-500">Total</label>
+                  <div className="h-11 flex items-center justify-end rounded-xl bg-micelio-50 border border-micelio-200 px-3 text-sm font-bold text-tierra-900">
+                    ${totalItem.toFixed(2)}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="xl:hidden text-[10px] uppercase tracking-widest text-tierra-500">Urgencia</label>
+                  <select
+                    value={item.urgencia}
+                    onChange={(e) => actualizarCampo(item.id, 'urgencia', e.target.value)}
+                    className={`h-11 w-full rounded-full border px-3 text-sm font-medium focus:outline-none ${urgenciaColor[item.urgencia] || urgenciaColor.media}`}
+                  >
+                    {urgencias.map((u) => (
+                      <option key={u.id} value={u.id}>{u.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="xl:hidden text-[10px] uppercase tracking-widest text-tierra-500">Deadline</label>
+                  <input
+                    type="date"
+                    value={item.fechaLimite || ''}
+                    onChange={(e) => actualizarCampo(item.id, 'fechaLimite', e.target.value)}
+                    className="h-11 w-full rounded-xl border border-micelio-200 bg-white px-3 text-sm text-tierra-700 focus:outline-none focus:ring-2 focus:ring-bosque-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="xl:hidden text-[10px] uppercase tracking-widest text-tierra-500">Estado</label>
+                  <select
+                    value={item.estado}
+                    onChange={(e) => actualizarCampo(item.id, 'estado', e.target.value)}
+                    className={`h-11 w-full rounded-full border px-3 text-sm font-medium focus:outline-none ${estadoColor[item.estado] || estadoColor.pendiente}`}
+                  >
+                    {estados.map((e) => (
+                      <option key={e.id} value={e.id}>{e.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => guardarItem(item.id)}
+                    disabled={guardandoId === item.id}
+                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-bosque-600 px-4 text-sm font-medium text-white hover:bg-bosque-700 disabled:opacity-60"
+                  >
+                    <Save className="w-4 h-4" />
+                    {guardandoId === item.id ? 'Guardando' : 'Guardar'}
+                  </button>
+
+                  <button
+                    onClick={() => eliminarItem(item.id)}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {itemsFiltrados.length === 0 && (
+          <div className="rounded-2xl border border-micelio-200 bg-white p-10 text-center text-tierra-500">
+            No hay items registrados en inventario.
+          </div>
+        )}
       </div>
     </div>
   );
