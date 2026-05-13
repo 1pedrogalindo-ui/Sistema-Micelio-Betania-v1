@@ -2,14 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --mb-bg: #FFFDF8;
+  --mb-bg-soft: #F8F1E3;
+  --mb-gold: #C8A76A;
+  --mb-gold-dark: #92713E;
+  --mb-earth: #251D17;
+  --mb-earth-soft: #392B21;
+  --mb-green: #477D4A;
+  --mb-green-dark: #294C2D;
+  --mb-border: #EADCC0;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
   body {
-    background: linear-gradient(180deg, #fdfbf7 0%, #f5efe1 100%);
+    background:
+      radial-gradient(circle at top left, rgba(200, 167, 106, 0.16), transparent 32rem),
+      linear-gradient(180deg, var(--mb-bg) 0%, var(--mb-bg-soft) 100%);
     min-height: 100vh;
+    color: var(--mb-earth);
+  }
+
+  ::selection {
+    background: rgba(200, 167, 106, 0.35);
+    color: var(--mb-earth);
+  }
+}
+
+@layer components {
+  .mb-card {
+    @apply bg-white/90 border border-micelio-200 rounded-2xl shadow-card;
+  }
+
+  .mb-panel {
+    @apply bg-micelio-50 border border-micelio-200 rounded-2xl;
+  }
+
+  .mb-title {
+    @apply font-serif text-tierra-900;
+  }
+
+  .mb-kicker {
+    @apply text-xs uppercase tracking-widest text-bosque-700;
+  }
+
+  .mb-button-primary {
+    @apply bg-bosque-600 hover:bg-bosque-700 text-white rounded-xl px-4 py-2.5 font-medium transition;
+  }
+
+  .mb-button-gold {
+    @apply bg-micelio-400 hover:bg-micelio-500 text-tierra-950 rounded-xl px-4 py-2.5 font-medium transition;
   }
 }
 
@@ -17,11 +64,12 @@
   .grain {
     position: relative;
   }
+
   .grain::before {
     content: '';
     position: absolute;
     inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
     pointer-events: none;
     z-index: 1;
   }
@@ -35,13 +83,17 @@
   width: 10px;
   height: 10px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #f5efe1;
+  background: #F8F1E3;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #c0a168;
-  border-radius: 5px;
+  background: #C8A76A;
+  border-radius: 999px;
+  border: 2px solid #F8F1E3;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #a88748;
+  background: #92713E;
 }
