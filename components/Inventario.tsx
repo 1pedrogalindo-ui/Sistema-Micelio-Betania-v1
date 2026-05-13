@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { dataAPI } from '@/lib/storage';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { registrarAuditLog } from '@/lib/audit';
-import { Save, Trash2, PlusCircle, X } from 'lucide-react';
+import { Save, Trash2, PlusCircle, X, RefreshCw } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -33,7 +32,7 @@ function crearIdDesdeTexto(texto: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
-    .slice(0, 50) || `item-${Date.now()}`;
+    .slice(0, 50);
 }
 
 export default function Inventario() {
@@ -42,6 +41,8 @@ export default function Inventario() {
   const [filtroUrgencia, setFiltroUrgencia] = useState('todos');
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [cargando, setCargando] = useState(false);
 
   const [nuevoItem, setNuevoItem] = useState({
     item: '',
@@ -55,12 +56,57 @@ export default function Inventario() {
   });
 
   useEffect(() => {
-    setItems(dataAPI.getInventario());
+    cargarInventario();
   }, []);
 
-  const guardarLocal = (nuevos: any[]) => {
-    setItems(nuevos);
-    dataAPI.setInventario(nuevos);
+  const mostrarMensaje = (texto: string) => {
+    setMensaje(texto);
+    setTimeout(() => setMensaje(''), 6000);
+  };
+
+  const mapDbToUi = (i: any) => ({
+    id: i.id,
+    item: i.item,
+    categoria: i.categoria || '',
+    cantidad: Number(i.cantidad || 0),
+    precioUnit: Number(i.precio_unit || 0),
+    urgencia: i.urgencia || 'media',
+    fechaLimite: i.fecha_limite || '',
+    estado: i.estado || 'pendiente',
+    notas: i.notas || '',
+    createdAt: i.created_at,
+    updatedAt: i.updated_at,
+  });
+
+  const cargarInventario = async () => {
+    setCargando(true);
+
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      setItems(dataAPI.getInventario());
+      setCargando(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('inventario')
+      .select('*')
+      .order('categoria', { ascending: true })
+      .order('item', { ascending: true });
+
+    if (error) {
+      console.error(error);
+      mostrarMensaje(`No se pudo cargar inventario: ${error.message}`);
+      setItems(dataAPI.getInventario());
+      setCargando(false);
+      return;
+    }
+
+    const ui = (data || []).map(mapDbToUi);
+    setItems(ui);
+    dataAPI.setInventario(ui);
+    setCargando(false);
   };
 
   const actualizarCampo = (id: string, campo: string, valor: any) => {
@@ -75,69 +121,55 @@ export default function Inventario() {
       };
     });
 
-    guardarLocal(nuevos);
+    setItems(nuevos);
   };
 
   const agregarItem = async () => {
     if (!nuevoItem.item.trim()) {
-      alert('Escribe el nombre del item.');
+      mostrarMensaje('Escribe el nombre del item.');
       return;
     }
 
     if (!nuevoItem.categoria.trim()) {
-      alert('Escribe la categoría.');
+      mostrarMensaje('Escribe la categoría.');
       return;
     }
 
-    const baseId = crearIdDesdeTexto(nuevoItem.item);
-    const id = items.some((i) => i.id === baseId) ? `${baseId}-${Date.now()}` : baseId;
+    const existe = items.some(
+      (i) => i.item?.trim().toLowerCase() === nuevoItem.item.trim().toLowerCase()
+    );
 
-    const itemPayload = {
-      id,
-      item: nuevoItem.item.trim(),
-      categoria: nuevoItem.categoria.trim(),
-      cantidad: Number(nuevoItem.cantidad || 0),
-      precioUnit: Number(nuevoItem.precioUnit || 0),
-      urgencia: nuevoItem.urgencia,
-      fechaLimite: nuevoItem.fechaLimite || new Date().toISOString().slice(0, 10),
-      estado: nuevoItem.estado,
-      notas: nuevoItem.notas.trim(),
-    };
-
-    const nuevos = [itemPayload, ...items];
-    guardarLocal(nuevos);
+    if (existe) {
+      mostrarMensaje(`El item ${nuevoItem.item} ya está registrado en inventario.`);
+      return;
+    }
 
     const supabase = getSupabaseBrowserClient();
 
-    if (supabase) {
-      const { error } = await supabase.from('inventario').insert({
-        id: itemPayload.id,
-        item: itemPayload.item,
-        categoria: itemPayload.categoria,
-        cantidad: itemPayload.cantidad,
-        precio_unit: itemPayload.precioUnit,
-        urgencia: itemPayload.urgencia,
-        fecha_limite: itemPayload.fechaLimite,
-        estado: itemPayload.estado,
-        notas: itemPayload.notas,
-      });
-
-      if (error) {
-        console.error(error);
-        alert('No se pudo guardar el nuevo item en Supabase. Quedó guardado localmente.');
-      }
+    if (!supabase) {
+      mostrarMensaje('Supabase no está configurado. No se puede guardar en producción.');
+      return;
     }
 
-    await registrarAuditLog({
-      accion: 'crear',
-      tabla: 'inventario',
-      registroId: itemPayload.id,
-      descripcion: `Nuevo item de inventario: ${itemPayload.item}`,
-      valoresNuevos: {
-        ...itemPayload,
-        total: itemPayload.cantidad * itemPayload.precioUnit,
-      },
+    const { error } = await supabase.rpc('crear_inventario_tx', {
+      p_id: crearIdDesdeTexto(nuevoItem.item),
+      p_item: nuevoItem.item.trim(),
+      p_categoria: nuevoItem.categoria.trim(),
+      p_cantidad: Number(nuevoItem.cantidad || 0),
+      p_precio_unit: Number(nuevoItem.precioUnit || 0),
+      p_urgencia: nuevoItem.urgencia,
+      p_fecha_limite: nuevoItem.fechaLimite || null,
+      p_estado: nuevoItem.estado,
+      p_notas: nuevoItem.notas.trim() || null,
     });
+
+    if (error) {
+      console.error(error);
+      mostrarMensaje(error.message);
+      return;
+    }
+
+    mostrarMensaje(`Item ${nuevoItem.item} registrado correctamente.`);
 
     setNuevoItem({
       item: '',
@@ -151,53 +183,50 @@ export default function Inventario() {
     });
 
     setMostrarNuevo(false);
+    await cargarInventario();
   };
 
   const guardarItem = async (id: string) => {
     const item = items.find((i) => i.id === id);
     if (!item) return;
 
+    if (!item.item?.trim()) {
+      mostrarMensaje('El item no puede estar vacío.');
+      return;
+    }
+
     setGuardandoId(id);
 
     const supabase = getSupabaseBrowserClient();
 
-    if (supabase) {
-      const { error } = await supabase
-        .from('inventario')
-        .update({
-          cantidad: Number(item.cantidad || 0),
-          precio_unit: Number(item.precioUnit || 0),
-          estado: item.estado,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error(error);
-        alert('No se pudo guardar el item en Supabase.');
-        setGuardandoId(null);
-        return;
-      }
+    if (!supabase) {
+      mostrarMensaje('Supabase no está configurado. No se puede guardar en producción.');
+      setGuardandoId(null);
+      return;
     }
 
-    await registrarAuditLog({
-      accion: 'actualizar',
-      tabla: 'inventario',
-      registroId: id,
-      descripcion: `Actualización de inventario: ${item.item}`,
-      valoresNuevos: {
-        cantidad: Number(item.cantidad || 0),
-        precioUnit: Number(item.precioUnit || 0),
-        total: Number(item.cantidad || 0) * Number(item.precioUnit || 0),
-        estado: item.estado,
-      },
+    const { error } = await supabase.rpc('actualizar_inventario_tx', {
+      p_id: id,
+      p_item: item.item.trim(),
+      p_categoria: item.categoria || null,
+      p_cantidad: Number(item.cantidad || 0),
+      p_precio_unit: Number(item.precioUnit || 0),
+      p_urgencia: item.urgencia || 'media',
+      p_fecha_limite: item.fechaLimite || null,
+      p_estado: item.estado || 'pendiente',
+      p_notas: item.notas || null,
     });
 
-    setGuardandoId(null);
-  };
+    if (error) {
+      console.error(error);
+      mostrarMensaje(error.message);
+      setGuardandoId(null);
+      return;
+    }
 
-  const cambiarEstado = (id: string, nuevoEstado: string) => {
-    actualizarCampo(id, 'estado', nuevoEstado);
+    mostrarMensaje(`Item ${item.item} actualizado correctamente.`);
+    await cargarInventario();
+    setGuardandoId(null);
   };
 
   const eliminarItem = async (id: string) => {
@@ -207,30 +236,25 @@ export default function Inventario() {
     const confirmar = window.confirm(`¿Eliminar del inventario: ${item.item}?`);
     if (!confirmar) return;
 
-    const nuevos = items.filter((i) => i.id !== id);
-    guardarLocal(nuevos);
-
     const supabase = getSupabaseBrowserClient();
 
-    if (supabase) {
-      const { error } = await supabase
-        .from('inventario')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error(error);
-        alert('No se pudo eliminar en Supabase. Se eliminó solo localmente.');
-      }
+    if (!supabase) {
+      mostrarMensaje('Supabase no está configurado.');
+      return;
     }
 
-    await registrarAuditLog({
-      accion: 'eliminar',
-      tabla: 'inventario',
-      registroId: id,
-      descripcion: `Eliminación de inventario: ${item.item}`,
-      valoresAnteriores: item,
+    const { error } = await supabase.rpc('eliminar_inventario_tx', {
+      p_id: id,
     });
+
+    if (error) {
+      console.error(error);
+      mostrarMensaje(error.message);
+      return;
+    }
+
+    mostrarMensaje(`Item ${item.item} eliminado correctamente.`);
+    await cargarInventario();
   };
 
   const categorias = ['todos', ...Array.from(new Set(items.map((i) => i.categoria).filter(Boolean)))];
@@ -258,18 +282,35 @@ export default function Inventario() {
           </div>
           <h1 className="font-serif text-4xl text-tierra-900 mb-2">Inventario</h1>
           <p className="text-tierra-600">
-            {items.length} items · {items.filter((i) => i.estado === 'pendiente').length} pendientes
+            {items.length} items · {items.filter((i) => i.estado === 'pendiente').length} pendientes · Guardado en Supabase
           </p>
         </div>
 
-        <button
-          onClick={() => setMostrarNuevo(true)}
-          className="inline-flex items-center gap-2 bg-bosque-600 hover:bg-bosque-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium"
-        >
-          <PlusCircle className="w-4 h-4" />
-          Agregar item
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={cargarInventario}
+            disabled={cargando}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-micelio-200 bg-white text-tierra-700 hover:bg-micelio-50 text-sm disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`} />
+            Refrescar
+          </button>
+
+          <button
+            onClick={() => setMostrarNuevo(true)}
+            className="inline-flex items-center gap-2 bg-bosque-600 hover:bg-bosque-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Agregar item
+          </button>
+        </div>
       </header>
+
+      {mensaje && (
+        <div className="rounded-xl border border-micelio-200 bg-micelio-50 px-4 py-3 text-sm text-tierra-800">
+          {mensaje}
+        </div>
+      )}
 
       {mostrarNuevo && (
         <div className="bg-white border border-micelio-200 rounded-2xl p-5 shadow-card">
@@ -284,62 +325,13 @@ export default function Inventario() {
           </div>
 
           <div className="grid md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <label className="text-xs uppercase tracking-wider text-tierra-600">Item</label>
-              <input
-                value={nuevoItem.item}
-                onChange={(e) => setNuevoItem({ ...nuevoItem, item: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
-                placeholder="Ej: Guantes nitrilo"
-              />
-            </div>
+            <Input label="Item" value={nuevoItem.item} onChange={(v: string) => setNuevoItem({ ...nuevoItem, item: v })} placeholder="Ej: Guantes nitrilo" className="md:col-span-2" />
+            <Input label="Categoría" value={nuevoItem.categoria} onChange={(v: string) => setNuevoItem({ ...nuevoItem, categoria: v })} placeholder="Ej: EPP" />
 
-            <div>
-              <label className="text-xs uppercase tracking-wider text-tierra-600">Categoría</label>
-              <input
-                value={nuevoItem.categoria}
-                onChange={(e) => setNuevoItem({ ...nuevoItem, categoria: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
-                placeholder="Ej: EPP"
-              />
-            </div>
+            <Select label="Urgencia" value={nuevoItem.urgencia} onChange={(v: string) => setNuevoItem({ ...nuevoItem, urgencia: v })} options={urgencias} />
 
-            <div>
-              <label className="text-xs uppercase tracking-wider text-tierra-600">Urgencia</label>
-              <select
-                value={nuevoItem.urgencia}
-                onChange={(e) => setNuevoItem({ ...nuevoItem, urgencia: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
-              >
-                {urgencias.map((u) => (
-                  <option key={u.id} value={u.id}>{u.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs uppercase tracking-wider text-tierra-600">Cantidad</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={nuevoItem.cantidad}
-                onChange={(e) => setNuevoItem({ ...nuevoItem, cantidad: Number(e.target.value || 0) })}
-                className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs uppercase tracking-wider text-tierra-600">Precio unitario</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={nuevoItem.precioUnit}
-                onChange={(e) => setNuevoItem({ ...nuevoItem, precioUnit: Number(e.target.value || 0) })}
-                className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
-              />
-            </div>
+            <Input type="number" label="Cantidad" value={nuevoItem.cantidad} onChange={(v: string) => setNuevoItem({ ...nuevoItem, cantidad: Number(v || 0) })} />
+            <Input type="number" step="0.01" label="Precio unitario" value={nuevoItem.precioUnit} onChange={(v: string) => setNuevoItem({ ...nuevoItem, precioUnit: Number(v || 0) })} />
 
             <div>
               <label className="text-xs uppercase tracking-wider text-tierra-600">Total</label>
@@ -348,25 +340,8 @@ export default function Inventario() {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs uppercase tracking-wider text-tierra-600">Deadline</label>
-              <input
-                type="date"
-                value={nuevoItem.fechaLimite}
-                onChange={(e) => setNuevoItem({ ...nuevoItem, fechaLimite: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
-              />
-            </div>
-
-            <div className="md:col-span-4">
-              <label className="text-xs uppercase tracking-wider text-tierra-600">Notas</label>
-              <input
-                value={nuevoItem.notas}
-                onChange={(e) => setNuevoItem({ ...nuevoItem, notas: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
-                placeholder="Opcional"
-              />
-            </div>
+            <Input type="date" label="Deadline" value={nuevoItem.fechaLimite} onChange={(v: string) => setNuevoItem({ ...nuevoItem, fechaLimite: v })} />
+            <Input label="Notas" value={nuevoItem.notas} onChange={(v: string) => setNuevoItem({ ...nuevoItem, notas: v })} placeholder="Opcional" className="md:col-span-4" />
           </div>
 
           <div className="flex justify-end mt-4">
@@ -424,7 +399,7 @@ export default function Inventario() {
       </div>
 
       <div className="bg-white rounded-2xl border border-micelio-200 overflow-x-auto">
-        <table className="w-full min-w-[1100px]">
+        <table className="w-full min-w-[1150px]">
           <thead className="bg-micelio-50 border-b border-micelio-200">
             <tr className="text-xs uppercase tracking-wider text-tierra-600">
               <th className="text-left p-4">Item</th>
@@ -447,8 +422,21 @@ export default function Inventario() {
 
               return (
                 <tr key={item.id} className="border-b border-micelio-100 hover:bg-micelio-50/50">
-                  <td className="p-4 text-sm text-tierra-900 font-medium">{item.item}</td>
-                  <td className="p-4 text-sm text-tierra-600">{item.categoria}</td>
+                  <td className="p-4 text-sm text-tierra-900 font-medium">
+                    <input
+                      value={item.item}
+                      onChange={(e) => actualizarCampo(item.id, 'item', e.target.value)}
+                      className="w-52 px-2 py-1.5 rounded-lg border border-micelio-200 bg-white"
+                    />
+                  </td>
+
+                  <td className="p-4 text-sm text-tierra-600">
+                    <input
+                      value={item.categoria}
+                      onChange={(e) => actualizarCampo(item.id, 'categoria', e.target.value)}
+                      className="w-32 px-2 py-1.5 rounded-lg border border-micelio-200 bg-white"
+                    />
+                  </td>
 
                   <td className="p-4 text-sm text-center text-tierra-700">
                     <input
@@ -477,19 +465,35 @@ export default function Inventario() {
                   </td>
 
                   <td className="p-4 text-center">
-                    <span className={`text-xs px-2 py-1 rounded-full border ${urgenciaColor[item.urgencia]}`}>
-                      {item.urgencia}
-                    </span>
+                    <select
+                      value={item.urgencia}
+                      onChange={(e) => actualizarCampo(item.id, 'urgencia', e.target.value)}
+                      className={`text-xs px-2 py-1 rounded-full border ${urgenciaColor[item.urgencia] || urgenciaColor.media}`}
+                    >
+                      {urgencias.map((u) => (
+                        <option key={u.id} value={u.id}>{u.label}</option>
+                      ))}
+                    </select>
                   </td>
 
                   <td className="p-4 text-xs text-center text-tierra-600">
-                    {item.fechaLimite ? format(parseISO(item.fechaLimite), "d MMM", { locale: es }) : '—'}
+                    <input
+                      type="date"
+                      value={item.fechaLimite || ''}
+                      onChange={(e) => actualizarCampo(item.id, 'fechaLimite', e.target.value)}
+                      className="px-2 py-1.5 rounded-lg border border-micelio-200 bg-white"
+                    />
+                    {item.fechaLimite && (
+                      <div className="mt-1">
+                        {format(parseISO(item.fechaLimite), "d MMM", { locale: es })}
+                      </div>
+                    )}
                   </td>
 
                   <td className="p-4 text-center">
                     <select
                       value={item.estado}
-                      onChange={(e) => cambiarEstado(item.id, e.target.value)}
+                      onChange={(e) => actualizarCampo(item.id, 'estado', e.target.value)}
                       className={`text-xs px-2 py-1 rounded-full border ${
                         item.estado === 'recibido'
                           ? 'bg-green-100 text-green-700 border-green-200'
@@ -527,6 +531,14 @@ export default function Inventario() {
                 </tr>
               );
             })}
+
+            {itemsFiltrados.length === 0 && (
+              <tr>
+                <td colSpan={9} className="p-8 text-center text-tierra-500">
+                  No hay items registrados en inventario.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -539,6 +551,39 @@ function KPI({ label, value, highlight }: any) {
     <div className={`rounded-2xl p-5 border ${highlight ? 'bg-red-50 border-red-200' : 'bg-white border-micelio-200'}`}>
       <div className="text-xs text-tierra-600 uppercase tracking-wider mb-2">{label}</div>
       <div className="font-serif text-3xl text-tierra-900">{value}</div>
+    </div>
+  );
+}
+
+function Input({ label, value, onChange, type = 'text', placeholder = '', step, className = '' }: any) {
+  return (
+    <div className={className}>
+      <label className="text-xs uppercase tracking-wider text-tierra-600">{label}</label>
+      <input
+        type={type}
+        step={step}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
+      />
+    </div>
+  );
+}
+
+function Select({ label, value, onChange, options }: any) {
+  return (
+    <div>
+      <label className="text-xs uppercase tracking-wider text-tierra-600">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full mt-1 px-3 py-2 rounded-lg border border-micelio-200"
+      >
+        {options.map((o: any) => (
+          <option key={o.id} value={o.id}>{o.label}</option>
+        ))}
+      </select>
     </div>
   );
 }
