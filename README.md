@@ -155,3 +155,4 @@ Cuando quieras subir el sistema al siguiente nivel:
 Documento confidencial · Micelio Betania × CBI Betania · 2026
 
 Deadline del piloto: **28 de mayo de 2026**
+# Sistema-Micelio-Betania-v1
