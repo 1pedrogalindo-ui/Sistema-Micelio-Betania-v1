@@ -7,11 +7,12 @@ import {
   Package,
   ClipboardList,
   GitBranch,
+  Warehouse,
   DollarSign,
-  Leaf,
   DatabaseZap,
   Brain,
   Briefcase,
+  Leaf,
 } from 'lucide-react';
 
 const items = [
@@ -21,6 +22,7 @@ const items = [
   { id: 'inventario', label: 'Inventario', icon: Package },
   { id: 'registros', label: 'Registros', icon: ClipboardList },
   { id: 'trazabilidad', label: 'Trazabilidad', icon: GitBranch },
+  { id: 'infraestructura', label: 'Infraestructura', icon: Warehouse },
   { id: 'costos', label: 'Costos & ROI', icon: DollarSign },
   { id: 'integraciones', label: 'Integraciones', icon: DatabaseZap },
   { id: 'inteligencia', label: 'Inteligencia', icon: Brain },
@@ -53,6 +55,7 @@ export default function Sidebar({
           {items.map((item) => {
             const Icon = item.icon;
             const active = seccion === item.id;
+
             return (
               <li key={item.id}>
                 <button
