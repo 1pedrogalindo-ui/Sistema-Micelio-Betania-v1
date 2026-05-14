@@ -5,6 +5,7 @@ import {
   Text,
   View,
   StyleSheet,
+  Image,
 } from '@react-pdf/renderer';
 
 const colors = {
@@ -27,6 +28,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 38,
     fontFamily: 'Times-Roman',
     color: colors.text,
+  },
+
+  logo: {
+    width: 112,
+    height: 58,
+    objectFit: 'contain',
+    marginBottom: 8,
   },
 
   coverBox: {
@@ -311,11 +319,13 @@ export default function ManualOperativoPDF({
   inventario,
   cosechas,
   registros,
+  logoSrc,
 }: {
   fases: any[];
   inventario: any[];
   cosechas: any[];
   registros: any[];
+  logoSrc?: string;
 }) {
   const costoInventario = inventario.reduce(
     (s, i) => s + Number(i.cantidad || 0) * Number(i.precio_unit || 0),
@@ -344,8 +354,14 @@ export default function ManualOperativoPDF({
             <Text style={styles.confidential}>Documento operativo{'\n'}Confidencial{'\n'}Versión sistema</Text>
           </View>
 
-          <Text style={styles.brand}>Micelio</Text>
-          <Text style={[styles.brand, styles.brandGold]}>Betania</Text>
+          {logoSrc ? (
+            <Image src={logoSrc} style={styles.logo} />
+          ) : (
+            <>
+              <Text style={styles.brand}>Micelio</Text>
+              <Text style={[styles.brand, styles.brandGold]}>Betania</Text>
+            </>
+          )}
 
           <Text style={styles.title}>Manual Operativo Actualizado — Piloto de Champiñón Blanco</Text>
           <Text style={styles.subtitle}>Cuarto cerrado de 10 m² · Betania, Alangasí · Valle de los Chillos</Text>

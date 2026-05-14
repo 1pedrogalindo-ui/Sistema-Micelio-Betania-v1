@@ -39,236 +39,6 @@ function escapeHtml(v: any) {
 }
 
 
-async function downloadHtmlAsPdf(filename: string, html: string) {
-  const html2pdfModule = await import('html2pdf.js');
-  const html2pdf = html2pdfModule.default || html2pdfModule;
-
-  const container = document.createElement('div');
-  container.innerHTML = `
-    <div class="pdf-document">
-      ${html}
-    </div>
-  `;
-
-  const style = document.createElement('style');
-  style.innerHTML = `
-    .pdf-document {
-      width: 210mm;
-      min-height: 297mm;
-      background: #F7F6F2;
-      color: #2b241d;
-      font-family: Georgia, 'Times New Roman', serif;
-      padding: 0;
-    }
-
-    .pdf-page {
-      background: #F7F6F2;
-      padding: 18mm;
-      page-break-after: always;
-      min-height: 297mm;
-      box-sizing: border-box;
-    }
-
-    .pdf-page:last-child {
-      page-break-after: auto;
-    }
-
-    .cover {
-      border: 2px solid #C9A76A;
-      border-radius: 22px;
-      padding: 26px;
-      background: linear-gradient(135deg, #F7F6F2 0%, #fffaf0 100%);
-      margin-bottom: 22px;
-    }
-
-    .brand-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 18px;
-      margin-bottom: 18px;
-    }
-
-    .brand-title {
-      font-size: 34px;
-      line-height: 0.95;
-      color: #1F4F3A;
-      margin: 0;
-      letter-spacing: -0.03em;
-    }
-
-    .brand-title span {
-      display: block;
-      color: #C9A76A;
-    }
-
-    .doc-label {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: #1F4F3A;
-      color: #F7F6F2;
-      font-size: 10px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      font-family: Arial, sans-serif;
-    }
-
-    .confidencial {
-      font-size: 10px;
-      color: #6F7C75;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-family: Arial, sans-serif;
-      text-align: right;
-    }
-
-    h1 {
-      color: #1F4F3A;
-      font-size: 30px;
-      margin: 8px 0 6px;
-      line-height: 1.05;
-    }
-
-    h2 {
-      color: #1F4F3A;
-      font-size: 20px;
-      margin: 24px 0 10px;
-      border-bottom: 1px solid #C9A76A;
-      padding-bottom: 6px;
-      line-height: 1.2;
-    }
-
-    h3 {
-      color: #2b241d;
-      font-size: 15px;
-      margin: 14px 0 6px;
-    }
-
-    p {
-      font-size: 12px;
-      line-height: 1.45;
-      margin: 5px 0 8px;
-    }
-
-    .muted {
-      color: #6F7C75;
-      font-size: 10px;
-      font-family: Arial, sans-serif;
-    }
-
-    .kpis {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin: 16px 0 20px;
-    }
-
-    .kpi {
-      border: 1px solid #e4d6b8;
-      background: #fffaf0;
-      border-radius: 14px;
-      padding: 12px;
-      min-height: 68px;
-    }
-
-    .kpi .label {
-      font-size: 9px;
-      color: #6F7C75;
-      text-transform: uppercase;
-      letter-spacing: .12em;
-      font-family: Arial, sans-serif;
-      margin-bottom: 6px;
-    }
-
-    .kpi .value {
-      font-size: 22px;
-      color: #1F4F3A;
-      font-weight: bold;
-      line-height: 1;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 10px 0 18px;
-      font-size: 10px;
-      background: #fffdf8;
-    }
-
-    th {
-      background: #EFE5D1;
-      color: #4d3e2d;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      font-size: 8px;
-      text-align: left;
-      font-family: Arial, sans-serif;
-    }
-
-    th, td {
-      border: 1px solid #e2d4b7;
-      padding: 6px;
-      vertical-align: top;
-    }
-
-    ul {
-      margin: 0;
-      padding-left: 15px;
-    }
-
-    li {
-      margin-bottom: 3px;
-      line-height: 1.35;
-    }
-
-    .section-card {
-      border: 1px solid #e4d6b8;
-      border-radius: 16px;
-      padding: 14px;
-      background: #fffaf0;
-      margin: 12px 0;
-    }
-
-    .footer-note {
-      margin-top: 18px;
-      padding-top: 10px;
-      border-top: 1px solid #e2d4b7;
-      font-size: 9px;
-      color: #6F7C75;
-      font-family: Arial, sans-serif;
-    }
-  `;
-
-  document.body.appendChild(style);
-  document.body.appendChild(container);
-
-  const options = {
-    margin: 0,
-    filename: filename.endsWith('.pdf') ? filename : `${filename}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#F7F6F2',
-    },
-    jsPDF: {
-      unit: 'mm',
-      format: 'a4',
-      orientation: 'portrait',
-    },
-    pagebreak: {
-      mode: ['css', 'legacy'],
-      before: '.page-break',
-    },
-  };
-
-  await html2pdf().set(options).from(container).save();
-
-  container.remove();
-  style.remove();
-}
-
 
 async function downloadServerPdf(endpoint: string, filename: string) {
   const supabase = getSupabaseBrowserClient();
@@ -301,12 +71,14 @@ async function downloadServerPdf(endpoint: string, filename: string) {
 
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
+
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
+
   URL.revokeObjectURL(url);
 }
 
@@ -628,7 +400,7 @@ export default function Reportes() {
       </div>
     `;
 
-    downloadHtmlAsPdf('Micelio_Betania_Manual_Operativo_Actualizado.pdf', html);
+    downloadServerPdf('/api/reports/manual', 'Micelio_Betania_Manual_Operativo_Actualizado.pdf');
   };
 
   const generarReporteOperativo = () => {
@@ -682,7 +454,7 @@ export default function Reportes() {
       </table>
     `;
 
-    downloadHtmlAsPdf('Micelio_Betania_Reporte_Operativo.pdf', html);
+    alert('El reporte operativo será migrado al nuevo motor PDF profesional. Por ahora usa el Manual Operativo actualizado.');
   };
 
   const generarReporteFinanciero = () => {
@@ -740,7 +512,7 @@ export default function Reportes() {
       </table>
     `;
 
-    downloadHtmlAsPdf('Micelio_Betania_Reporte_Financiero.pdf', html);
+    alert('El reporte financiero será migrado al nuevo motor PDF profesional. Por ahora usa el Manual Operativo actualizado.');
   };
 
   const generarReporteInversionistas = () => {
@@ -799,7 +571,7 @@ export default function Reportes() {
       </table>
     `;
 
-    downloadHtmlAsPdf('Micelio_Betania_Reporte_Inversionistas.pdf', html);
+    alert('El reporte para inversionistas será migrado al nuevo motor PDF profesional. Por ahora usa el Manual Operativo actualizado.');
   };
 
   const exportarDatosCsv = () => {
