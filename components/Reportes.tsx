@@ -269,6 +269,47 @@ async function downloadHtmlAsPdf(filename: string, html: string) {
   style.remove();
 }
 
+
+async function downloadServerPdf(endpoint: string, filename: string) {
+  const supabase = getSupabaseBrowserClient();
+
+  if (!supabase) {
+    alert('Supabase no está configurado.');
+    return;
+  }
+
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+
+  if (!token) {
+    alert('Tu sesión expiró. Vuelve a iniciar sesión.');
+    return;
+  }
+
+  const res = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    console.error(error);
+    alert('No se pudo generar el PDF.');
+    return;
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function downloadCsv(filename: string, rows: any[]) {
   if (!rows.length) return;
 
@@ -809,7 +850,7 @@ export default function Reportes() {
           title="Manual Operativo actualizado"
           text="Documento completo con cronograma vigente, parámetros técnicos, registros requeridos e indicadores actuales."
           button="Descargar PDF"
-          onClick={generarManualActualizado}
+          onClick={() => downloadServerPdf('/api/reports/manual', 'Micelio_Betania_Manual_Operativo_Actualizado.pdf')}
         />
 
         <ReportCard
