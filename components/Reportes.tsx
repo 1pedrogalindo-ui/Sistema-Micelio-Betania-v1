@@ -38,104 +38,235 @@ function escapeHtml(v: any) {
     .replaceAll("'", '&#039;');
 }
 
-function downloadHtmlAsDoc(filename: string, html: string) {
-  const full = `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(filename)}</title>
-  <style>
-    body {
-      font-family: Georgia, 'Times New Roman', serif;
+
+async function downloadHtmlAsPdf(filename: string, html: string) {
+  const html2pdfModule = await import('html2pdf.js');
+  const html2pdf = html2pdfModule.default || html2pdfModule;
+
+  const container = document.createElement('div');
+  container.innerHTML = `
+    <div class="pdf-document">
+      ${html}
+    </div>
+  `;
+
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .pdf-document {
+      width: 210mm;
+      min-height: 297mm;
+      background: #F7F6F2;
       color: #2b241d;
-      line-height: 1.45;
-      padding: 32px;
+      font-family: Georgia, 'Times New Roman', serif;
+      padding: 0;
     }
-    h1 { color: #1F4F3A; font-size: 30px; margin-bottom: 4px; }
-    h2 { color: #1F4F3A; font-size: 22px; border-bottom: 1px solid #C9A76A; padding-bottom: 6px; margin-top: 28px; }
-    h3 { color: #2b241d; font-size: 17px; margin-top: 18px; }
-    .muted { color: #6F7C75; font-size: 12px; }
+
+    .pdf-page {
+      background: #F7F6F2;
+      padding: 18mm;
+      page-break-after: always;
+      min-height: 297mm;
+      box-sizing: border-box;
+    }
+
+    .pdf-page:last-child {
+      page-break-after: auto;
+    }
+
     .cover {
       border: 2px solid #C9A76A;
-      padding: 28px;
-      border-radius: 18px;
-      margin-bottom: 28px;
-      background: #F7F6F2;
+      border-radius: 22px;
+      padding: 26px;
+      background: linear-gradient(135deg, #F7F6F2 0%, #fffaf0 100%);
+      margin-bottom: 22px;
     }
-    .badge {
+
+    .brand-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .brand-title {
+      font-size: 34px;
+      line-height: 0.95;
+      color: #1F4F3A;
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+
+    .brand-title span {
+      display: block;
+      color: #C9A76A;
+    }
+
+    .doc-label {
       display: inline-block;
-      padding: 4px 10px;
-      background: #1F4F3A;
-      color: white;
+      padding: 6px 12px;
       border-radius: 999px;
-      font-size: 11px;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 14px 0 22px;
-      font-size: 12px;
-    }
-    th {
-      background: #F7F6F2;
-      color: #4d3e2d;
-      text-transform: uppercase;
-      letter-spacing: .08em;
+      background: #1F4F3A;
+      color: #F7F6F2;
       font-size: 10px;
-      text-align: left;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-family: Arial, sans-serif;
     }
-    th, td {
-      border: 1px solid #e4d6b8;
-      padding: 8px;
-      vertical-align: top;
+
+    .confidencial {
+      font-size: 10px;
+      color: #6F7C75;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-family: Arial, sans-serif;
+      text-align: right;
     }
+
+    h1 {
+      color: #1F4F3A;
+      font-size: 30px;
+      margin: 8px 0 6px;
+      line-height: 1.05;
+    }
+
+    h2 {
+      color: #1F4F3A;
+      font-size: 20px;
+      margin: 24px 0 10px;
+      border-bottom: 1px solid #C9A76A;
+      padding-bottom: 6px;
+      line-height: 1.2;
+    }
+
+    h3 {
+      color: #2b241d;
+      font-size: 15px;
+      margin: 14px 0 6px;
+    }
+
+    p {
+      font-size: 12px;
+      line-height: 1.45;
+      margin: 5px 0 8px;
+    }
+
+    .muted {
+      color: #6F7C75;
+      font-size: 10px;
+      font-family: Arial, sans-serif;
+    }
+
     .kpis {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 10px;
-      margin: 18px 0;
+      margin: 16px 0 20px;
     }
+
     .kpi {
       border: 1px solid #e4d6b8;
+      background: #fffaf0;
+      border-radius: 14px;
       padding: 12px;
-      background: #F7F6F2;
-      border-radius: 12px;
+      min-height: 68px;
     }
+
     .kpi .label {
-      font-size: 10px;
-      text-transform: uppercase;
+      font-size: 9px;
       color: #6F7C75;
-      letter-spacing: .08em;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-family: Arial, sans-serif;
+      margin-bottom: 6px;
     }
+
     .kpi .value {
       font-size: 22px;
       color: #1F4F3A;
       font-weight: bold;
-      margin-top: 4px;
+      line-height: 1;
     }
-    ul { margin-top: 6px; }
-    li { margin-bottom: 4px; }
-    .page-break { page-break-before: always; }
-  </style>
-</head>
-<body>${html}</body>
-</html>`;
 
-  const blob = new Blob(['\ufeff', full], {
-    type: 'application/msword;charset=utf-8',
-  });
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 18px;
+      font-size: 10px;
+      background: #fffdf8;
+    }
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename.endsWith('.doc') ? filename : `${filename}.doc`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+    th {
+      background: #EFE5D1;
+      color: #4d3e2d;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: 8px;
+      text-align: left;
+      font-family: Arial, sans-serif;
+    }
+
+    th, td {
+      border: 1px solid #e2d4b7;
+      padding: 6px;
+      vertical-align: top;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 15px;
+    }
+
+    li {
+      margin-bottom: 3px;
+      line-height: 1.35;
+    }
+
+    .section-card {
+      border: 1px solid #e4d6b8;
+      border-radius: 16px;
+      padding: 14px;
+      background: #fffaf0;
+      margin: 12px 0;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      padding-top: 10px;
+      border-top: 1px solid #e2d4b7;
+      font-size: 9px;
+      color: #6F7C75;
+      font-family: Arial, sans-serif;
+    }
+  `;
+
+  document.body.appendChild(style);
+  document.body.appendChild(container);
+
+  const options = {
+    margin: 0,
+    filename: filename.endsWith('.pdf') ? filename : `${filename}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#F7F6F2',
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+    },
+    pagebreak: {
+      mode: ['css', 'legacy'],
+      before: '.page-break',
+    },
+  };
+
+  await html2pdf().set(options).from(container).save();
+
+  container.remove();
+  style.remove();
 }
 
 function downloadCsv(filename: string, rows: any[]) {
@@ -308,31 +439,47 @@ export default function Reportes() {
       .join('');
 
     const html = `
-      <div class="cover">
-        <span class="badge">Documento operativo actualizado</span>
-        <h1>Micelio Betania</h1>
-        <h2>Manual Operativo Actualizado — Piloto de Champiñón Blanco 10 m²</h2>
-        <p><strong>Ubicación:</strong> Betania, Alangasí · Valle de los Chillos</p>
-        <p><strong>Área piloto:</strong> 10 m² físicos · hasta 30 m² efectivos</p>
-        <p><strong>Especie:</strong> Agaricus bisporus · Champiñón blanco</p>
-        <p><strong>Fecha de generación:</strong> ${new Date().toLocaleString('es-EC')}</p>
-        <p class="muted">Documento generado desde el Sistema Micelio Betania con cronograma parametrizado en Supabase.</p>
-      </div>
+      <div class="pdf-page">
+        <div class="cover">
+          <div class="brand-row">
+            <div>
+              <div class="doc-label">Documento operativo actualizado</div>
+              <h1 class="brand-title">Micelio <span>Betania</span></h1>
+            </div>
+            <div class="confidencial">
+              Documento operativo<br/>
+              Confidencial<br/>
+              Versión sistema
+            </div>
+          </div>
 
-      <h2>Resumen ejecutivo</h2>
+          <h1>Manual Operativo Actualizado — Piloto de Champiñón Blanco</h1>
+          <p><strong>Cuarto cerrado de 10 m² · Betania, Alangasí · Valle de los Chillos</strong></p>
+          <p><strong>Especie:</strong> Agaricus bisporus · Champiñón blanco</p>
+          <p><strong>Área piloto:</strong> 10 m² físicos · hasta 30 m² efectivos</p>
+          <p><strong>Fecha de generación:</strong> ${new Date().toLocaleString('es-EC')}</p>
+          <p class="muted">
+            Documento generado desde el Sistema Micelio Betania con cronograma parametrizado en Supabase.
+          </p>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><div class="label">Avance</div><div class="value">${num(metricas.avance, 0)}%</div></div>
+          <div class="kpi"><div class="label">Producción</div><div class="value">${num(metricas.totalKg)} kg</div></div>
+          <div class="kpi"><div class="label">Ingreso est.</div><div class="value">${money(metricas.ingreso)}</div></div>
+          <div class="kpi"><div class="label">Merma</div><div class="value">${num(metricas.mermaPct)}%</div></div>
+        </div>
+
+        <h2>Resumen ejecutivo</h2>
       <p>
         Este manual operativo consolida el proceso del piloto de champiñón blanco de Micelio Betania,
         integrando el cronograma operativo actualizado, registros de control, producción, costos,
         trazabilidad e indicadores para la toma de decisiones.
       </p>
 
-      <div class="kpis">
-        <div class="kpi"><div class="label">Avance</div><div class="value">${num(metricas.avance, 0)}%</div></div>
-        <div class="kpi"><div class="label">Producción</div><div class="value">${num(metricas.totalKg)} kg</div></div>
-        <div class="kpi"><div class="label">Ingreso est.</div><div class="value">${money(metricas.ingreso)}</div></div>
-        <div class="kpi"><div class="label">Merma</div><div class="value">${num(metricas.mermaPct)}%</div></div>
       </div>
 
+      <div class="pdf-page page-break">
       <h2>Cronograma actualizado</h2>
       <table>
         <thead>
@@ -348,6 +495,9 @@ export default function Reportes() {
         <tbody>${cronogramaRows}</tbody>
       </table>
 
+      </div>
+
+      <div class="pdf-page page-break">
       <h2>Parámetros técnicos base</h2>
       <table>
         <thead>
@@ -404,6 +554,9 @@ export default function Reportes() {
         </tbody>
       </table>
 
+      </div>
+
+      <div class="pdf-page page-break">
       <h2>Indicadores actuales del sistema</h2>
       <table>
         <tbody>
@@ -419,14 +572,22 @@ export default function Reportes() {
       </table>
 
       <h2>Decisión operativa</h2>
-      <p>
-        El ciclo debe evaluarse por rendimiento kg/m², estabilidad ambiental, merma, costo real por kg,
-        trazabilidad y capacidad de vender producto premium/comercial. No se recomienda escalar por entusiasmo,
-        sino por evidencia operativa documentada.
-      </p>
+      <div class="section-card">
+        <p>
+          El ciclo debe evaluarse por rendimiento kg/m², estabilidad ambiental, merma, costo real por kg,
+          trazabilidad y capacidad de vender producto premium/comercial. No se recomienda escalar por entusiasmo,
+          sino por evidencia operativa documentada.
+        </p>
+      </div>
+
+      <div class="footer-note">
+        Micelio Betania × CBI Betania · Manual Operativo Piloto 10 m² · Champiñón Blanco Agaricus bisporus ·
+        Documento confidencial de uso estratégico · Generado automáticamente desde el sistema.
+      </div>
+      </div>
     `;
 
-    downloadHtmlAsDoc('Micelio_Betania_Manual_Operativo_Actualizado.doc', html);
+    downloadHtmlAsPdf('Micelio_Betania_Manual_Operativo_Actualizado.pdf', html);
   };
 
   const generarReporteOperativo = () => {
@@ -480,7 +641,7 @@ export default function Reportes() {
       </table>
     `;
 
-    downloadHtmlAsDoc('Micelio_Betania_Reporte_Operativo.doc', html);
+    downloadHtmlAsPdf('Micelio_Betania_Reporte_Operativo.pdf', html);
   };
 
   const generarReporteFinanciero = () => {
@@ -538,7 +699,7 @@ export default function Reportes() {
       </table>
     `;
 
-    downloadHtmlAsDoc('Micelio_Betania_Reporte_Financiero.doc', html);
+    downloadHtmlAsPdf('Micelio_Betania_Reporte_Financiero.pdf', html);
   };
 
   const generarReporteInversionistas = () => {
@@ -597,7 +758,7 @@ export default function Reportes() {
       </table>
     `;
 
-    downloadHtmlAsDoc('Micelio_Betania_Reporte_Inversionistas.doc', html);
+    downloadHtmlAsPdf('Micelio_Betania_Reporte_Inversionistas.pdf', html);
   };
 
   const exportarDatosCsv = () => {
@@ -615,7 +776,7 @@ export default function Reportes() {
           </div>
           <h1 className="font-serif text-4xl text-tierra-900 mb-2">Reportes</h1>
           <p className="text-tierra-600 max-w-3xl">
-            Genera documentos descargables con datos actuales del sistema, incluyendo el Manual Operativo actualizado con el cronograma vigente.
+            Genera PDFs descargables con datos actuales del sistema, incluyendo el Manual Operativo actualizado con el cronograma vigente.
           </p>
         </div>
 
@@ -647,7 +808,7 @@ export default function Reportes() {
           icon={BookOpen}
           title="Manual Operativo actualizado"
           text="Documento completo con cronograma vigente, parámetros técnicos, registros requeridos e indicadores actuales."
-          button="Descargar manual"
+          button="Descargar PDF"
           onClick={generarManualActualizado}
         />
 
@@ -655,7 +816,7 @@ export default function Reportes() {
           icon={BarChart3}
           title="Reporte operativo"
           text="Cronograma, avances, registros ambientales, infraestructura y estado general del piloto."
-          button="Descargar reporte"
+          button="Descargar PDF"
           onClick={generarReporteOperativo}
         />
 
@@ -663,7 +824,7 @@ export default function Reportes() {
           icon={DollarSign}
           title="Reporte financiero"
           text="Inventario valorizado, cosechas, ingreso estimado, margen, merma y costo operativo."
-          button="Descargar reporte"
+          button="Descargar PDF"
           onClick={generarReporteFinanciero}
         />
 
@@ -671,7 +832,7 @@ export default function Reportes() {
           icon={Briefcase}
           title="Reporte para inversionistas"
           text="Lectura ejecutiva del piloto, semáforo Momento 2, evidencia y KPIs para decisión de escalamiento."
-          button="Descargar reporte"
+          button="Descargar PDF"
           onClick={generarReporteInversionistas}
         />
       </div>
