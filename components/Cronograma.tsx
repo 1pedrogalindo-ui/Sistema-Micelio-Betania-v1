@@ -43,6 +43,22 @@ function slug(texto: string) {
 }
 
 
+
+function formatDateOnly(value: any) {
+  if (!value) return 'Sin fecha';
+  const raw = String(value).slice(0, 10);
+  const [year, month, day] = raw.split('-').map(Number);
+
+  if (!year || !month || !day) return 'Sin fecha';
+
+  const meses = [
+    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+    'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
+  ];
+
+  return `${day} de ${meses[month - 1]}`;
+}
+
 function toDateInputValue(value: any) {
   if (!value) return '';
   if (typeof value === 'string') return value.slice(0, 10);
@@ -523,9 +539,9 @@ export default function Cronograma() {
                     <div className="flex items-center gap-2 text-xs text-tierra-500 mb-3">
                       <Clock className="w-3 h-3" />
                       <span>
-                        {fase.fechaInicio ? format(new Date(fase.fechaInicio), "d 'de' MMM", { locale: es }) : 'Sin inicio'}
+                        {formatDateOnly(fase.fechaInicio)}
                         {' → '}
-                        {fase.fechaFin ? format(new Date(fase.fechaFin), "d 'de' MMM", { locale: es }) : 'Sin fin'}
+                        {formatDateOnly(fase.fechaFin)}
                       </span>
                     </div>
 
