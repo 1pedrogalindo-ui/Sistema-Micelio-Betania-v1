@@ -42,13 +42,24 @@ function slug(texto: string) {
     .slice(0, 60);
 }
 
+
+function toDateInputValue(value: any) {
+  if (!value) return '';
+  if (typeof value === 'string') return value.slice(0, 10);
+  try {
+    return new Date(value).toISOString().slice(0, 10);
+  } catch {
+    return '';
+  }
+}
+
 function mapDbToUi(f: any) {
   return {
     id: f.id,
     nombre: f.nombre || '',
     semana: f.semana || '',
-    fechaInicio: f.fecha_inicio || '',
-    fechaFin: f.fecha_fin || '',
+    fechaInicio: toDateInputValue(f.fecha_inicio),
+    fechaFin: toDateInputValue(f.fecha_fin),
     estado: f.estado || 'pendiente',
     descripcion: f.descripcion || '',
     actividades: Array.isArray(f.actividades) ? f.actividades : [],
@@ -216,8 +227,8 @@ export default function Cronograma() {
       p_id: editando || formFase.id || slug(formFase.nombre),
       p_nombre: formFase.nombre.trim(),
       p_semana: formFase.semana || null,
-      p_fecha_inicio: formFase.fechaInicio || null,
-      p_fecha_fin: formFase.fechaFin || null,
+      p_fecha_inicio: formFase.fechaInicio ? String(formFase.fechaInicio).slice(0, 10) : null,
+      p_fecha_fin: formFase.fechaFin ? String(formFase.fechaFin).slice(0, 10) : null,
       p_estado: formFase.estado || 'pendiente',
       p_descripcion: formFase.descripcion || null,
       p_actividades: actividadesJson(),
@@ -276,8 +287,8 @@ export default function Cronograma() {
       p_id: id,
       p_nombre: fase.nombre,
       p_semana: fase.semana || null,
-      p_fecha_inicio: fase.fechaInicio || null,
-      p_fecha_fin: fase.fechaFin || null,
+      p_fecha_inicio: fase.fechaInicio ? String(fase.fechaInicio).slice(0, 10) : null,
+      p_fecha_fin: fase.fechaFin ? String(fase.fechaFin).slice(0, 10) : null,
       p_estado: nuevoEstado,
       p_descripcion: fase.descripcion || null,
       p_actividades: fase.actividades || [],
