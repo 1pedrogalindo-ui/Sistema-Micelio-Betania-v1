@@ -13,6 +13,7 @@ import {
   Brain,
   Briefcase,
   Leaf,
+  FileText,
 } from 'lucide-react';
 
 const items = [
@@ -27,6 +28,7 @@ const items = [
   { id: 'integraciones', label: 'Integraciones', icon: DatabaseZap },
   { id: 'inteligencia', label: 'Inteligencia', icon: Brain },
   { id: 'inversionistas', label: 'Inversionistas', icon: Briefcase },
+  { id: 'reportes', label: 'Reportes', icon: FileText },
 ];
 
 export default function Sidebar({

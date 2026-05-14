@@ -15,6 +15,7 @@ import Costos from '@/components/Costos';
 import Integraciones from '@/components/Integraciones';
 import Inteligencia from '@/components/Inteligencia';
 import Inversionistas from '@/components/Inversionistas';
+import Reportes from '@/components/Reportes';
 
 export default function Home() {
   const [seccion, setSeccion] = useState('dashboard');
@@ -50,6 +51,7 @@ export default function Home() {
             {seccion === 'integraciones' && <Integraciones />}
             {seccion === 'inteligencia' && <Inteligencia />}
             {seccion === 'inversionistas' && <Inversionistas />}
+            {seccion === 'reportes' && <Reportes />}
           </div>
         </main>
       </div>
