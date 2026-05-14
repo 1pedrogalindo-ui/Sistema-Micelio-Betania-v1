@@ -248,6 +248,20 @@ function SimpleTable({
   );
 }
 
+
+function chunkRows<T>(arr: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function fixed(n: any, d = 1) {
+  const value = Number(n || 0);
+  return Number.isFinite(value) ? value.toFixed(d) : '';
+}
+
 function metricasBase({ fases = [], inventario = [], cosechas = [] }: any) {
   const costo = inventario.reduce(
     (s: number, i: any) => s + Number(i.cantidad || 0) * Number(i.precio_unit || 0),
@@ -319,22 +333,28 @@ export function ReporteOperativoPDF({ fases, registros, bandejas, estanterias, l
         <Footer title="Reporte Operativo" />
       </Page>
 
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>Últimos registros ambientales</Text>
-        <SimpleTable
-          headers={['Fecha', 'Fase', 'T. aire', 'T. compost', 'HR', 'CO₂']}
-          widths={['24%', '18%', '14%', '16%', '12%', '16%']}
-          rows={registros.slice(0, 32).map((r: any) => [
-            String(r.fecha || '').slice(0, 16),
-            r.fase,
-            r.temperatura_aire ?? '',
-            r.temperatura_compost ?? '',
-            r.humedad ?? '',
-            r.co2 ?? '',
-          ])}
-        />
-        <Footer title="Reporte Operativo" />
-      </Page>
+      {chunkRows(registros.slice(0, 32), 16).map((grupo: any[], index: number) => (
+        <Page key={`registros-${index}`} size="A4" style={styles.page}>
+          <Text style={styles.sectionTitle}>
+            Últimos registros ambientales {index + 1}/{chunkRows(registros.slice(0, 32), 16).length}
+          </Text>
+
+          <SimpleTable
+            headers={['Fecha', 'Fase', 'T. aire', 'T. compost', 'HR', 'CO₂']}
+            widths={['24%', '18%', '14%', '16%', '12%', '16%']}
+            rows={grupo.map((r: any) => [
+              String(r.fecha || '').slice(0, 16),
+              r.fase || '',
+              fixed(r.temperatura_aire, 1),
+              fixed(r.temperatura_compost, 1),
+              fixed(r.humedad, 1),
+              fixed(r.co2, 0),
+            ])}
+          />
+
+          <Footer title="Reporte Operativo" />
+        </Page>
+      ))}
     </Document>
   );
 }
