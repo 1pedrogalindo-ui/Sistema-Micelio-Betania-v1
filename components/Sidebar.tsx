@@ -43,7 +43,7 @@ export default function Sidebar({
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-micelio-100/10 border border-micelio-400/20 flex items-center justify-center overflow-hidden">
             <img
-              src="/micelio-betania-logo-transparent.svg"
+              src="/micelio-betania-logo-exact.svg"
               alt="Micelio Betania"
               className="w-10 h-10 object-contain"
             />
