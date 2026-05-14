@@ -40,6 +40,16 @@ function escapeHtml(v: any) {
 
 
 
+
+function downloadStaticFile(path: string, filename: string) {
+  const a = document.createElement('a');
+  a.href = path;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 async function downloadServerPdf(endpoint: string, filename: string) {
   const supabase = getSupabaseBrowserClient();
 
@@ -400,7 +410,7 @@ export default function Reportes() {
       </div>
     `;
 
-    downloadServerPdf('/api/reports/manual', 'Micelio_Betania_Manual_Operativo_Actualizado.pdf');
+    downloadStaticFile('/docs/Micelio_Betania_Manual_Operativo_10m2.pdf', 'Micelio_Betania_Manual_Operativo_10m2.pdf');
   };
 
   const generarReporteOperativo = () => {
@@ -430,7 +440,7 @@ export default function Reportes() {
           </div>
           <h1 className="font-serif text-4xl text-tierra-900 mb-2">Reportes</h1>
           <p className="text-tierra-600 max-w-3xl">
-            Genera PDFs descargables con datos actuales del sistema, incluyendo el Manual Operativo actualizado con el cronograma vigente.
+            Genera PDFs descargables con datos actuales del sistema, incluyendo el Manual Operativo oficial con el cronograma vigente.
           </p>
         </div>
 
@@ -460,10 +470,10 @@ export default function Reportes() {
       <div className="grid lg:grid-cols-2 gap-5">
         <ReportCard
           icon={BookOpen}
-          title="Manual Operativo actualizado"
-          text="Documento completo con cronograma vigente, parámetros técnicos, registros requeridos e indicadores actuales."
+          title="Manual Operativo oficial"
+          text="Documento maestro aprobado para operar el negocio: cultivo, bioseguridad, cronograma, costos, cosecha, postcosecha, trazabilidad y escalamiento."
           button="Descargar PDF"
-          onClick={() => downloadServerPdf('/api/reports/manual', 'Micelio_Betania_Manual_Operativo_Actualizado.pdf')}
+          onClick={() => downloadStaticFile('/docs/Micelio_Betania_Manual_Operativo_10m2.pdf', 'Micelio_Betania_Manual_Operativo_10m2.pdf')}
         />
 
         <ReportCard
