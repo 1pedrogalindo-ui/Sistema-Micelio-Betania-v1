@@ -16,6 +16,7 @@ import {
   Trash2,
   X,
   RefreshCw,
+  Download,
 } from 'lucide-react';
 
 const estados = [
@@ -67,6 +68,66 @@ function toDateInputValue(value: any) {
   } catch {
     return '';
   }
+}
+
+
+function toExcelDate(value: any) {
+  if (!value) return null;
+  const raw = String(value).slice(0, 10);
+  const [year, month, day] = raw.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day, 12, 0, 0);
+}
+
+function diffDays(start: Date, end: Date) {
+  const one = 1000 * 60 * 60 * 24;
+  return Math.round((end.getTime() - start.getTime()) / one);
+}
+
+function addDays(date: Date, days: number) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function estadoExcelLabel(estado: string) {
+  const map: Record<string, string> = {
+    pendiente: 'Pendiente',
+    'en-curso': 'En curso',
+    completado: 'Completado',
+    retrasado: 'Retrasado',
+  };
+  return map[estado] || estado || 'Pendiente';
+}
+
+function urgenciaExcelLabel(urgencia: string) {
+  const map: Record<string, string> = {
+    baja: 'Baja',
+    media: 'Media',
+    alta: 'Alta',
+    critica: 'Crítica',
+  };
+  return map[urgencia] || urgencia || 'Media';
+}
+
+function estadoArgb(estado: string) {
+  if (estado === 'completado') return 'FF2E7D32';
+  if (estado === 'en-curso') return 'FF1F4F3A';
+  if (estado === 'retrasado') return 'FFB91C1C';
+  return 'FFC9A76A';
+}
+
+function urgenciaArgb(urgencia: string) {
+  if (urgencia === 'critica') return 'FFB91C1C';
+  if (urgencia === 'alta') return 'FFB45309';
+  if (urgencia === 'media') return 'FFC9A76A';
+  return 'FF6F7C75';
+}
+
+function progressBarExcel(value: number) {
+  const safe = Math.max(0, Math.min(100, Number(value || 0)));
+  const filled = Math.round(safe / 10);
+  return `${'█'.repeat(filled)}${'░'.repeat(10 - filled)} ${safe}%`;
 }
 
 function mapDbToUi(f: any) {
@@ -368,6 +429,458 @@ export default function Cronograma() {
     setGuardando(false);
   };
 
+
+  const descargarCronogramaExcel = async () => {
+    if (!fases.length) {
+      mostrarMensaje('No hay fases para exportar.');
+      return;
+    }
+
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.Workbook();
+
+    workbook.creator = 'Sistema Micelio Betania';
+    workbook.created = new Date();
+    workbook.modified = new Date();
+
+    const forest = 'FF1F4F3A';
+    const forestDark = 'FF15372A';
+    const gold = 'FFC9A76A';
+    const cream = 'FFF7F6F2';
+    const paper = 'FFFFFDF8';
+    const text = 'FF2B241D';
+    const muted = 'FF6F7C75';
+    const line = 'FFE3D4B7';
+
+    const excelFases = fases.map((f, index) => {
+      const inicio = toExcelDate(f.fechaInicio);
+      const fin = toExcelDate(f.fechaFin);
+      const duracion = inicio && fin ? diffDays(inicio, fin) + 1 : 0;
+
+      return {
+        numero: index + 1,
+        semana: f.semana || f.id,
+        nombre: f.nombre || '',
+        inicio,
+        fin,
+        duracion,
+        estado: estadoExcelLabel(f.estado),
+        estadoRaw: f.estado,
+        urgencia: urgenciaExcelLabel(f.urgencia),
+        urgenciaRaw: f.urgencia,
+        avance: Number(f.porcentajeAvance || 0),
+        responsable: f.responsable || '',
+        descripcion: f.descripcion || '',
+        actividades: Array.isArray(f.actividades) ? f.actividades.join('\n') : '',
+      };
+    });
+
+    const fechasValidas = excelFases.flatMap((f) => [f.inicio, f.fin]).filter(Boolean) as Date[];
+    const fechaMin = fechasValidas.length ? new Date(Math.min(...fechasValidas.map((d) => d.getTime()))) : new Date();
+    const fechaMax = fechasValidas.length ? new Date(Math.max(...fechasValidas.map((d) => d.getTime()))) : new Date();
+    const totalDias = diffDays(fechaMin, fechaMax) + 1;
+
+    const completadas = excelFases.filter((f) => f.estadoRaw === 'completado').length;
+    const enCurso = excelFases.filter((f) => f.estadoRaw === 'en-curso').length;
+    const retrasadas = excelFases.filter((f) => f.estadoRaw === 'retrasado').length;
+    const avancePromedio = excelFases.length
+      ? Math.round(excelFases.reduce((s, f) => s + f.avance, 0) / excelFases.length)
+      : 0;
+
+    // =========================
+    // HOJA 1: RESUMEN
+    // =========================
+    const resumen = workbook.addWorksheet('Resumen Ejecutivo', {
+      views: [{ showGridLines: false }],
+    });
+
+    resumen.mergeCells('A1:H1');
+    resumen.getCell('A1').value = 'MICELIO BETANIA · CRONOGRAMA OPERATIVO';
+    resumen.getCell('A1').font = { bold: true, color: { argb: cream }, size: 18 };
+    resumen.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: forest } };
+    resumen.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
+    resumen.getRow(1).height = 34;
+
+    resumen.mergeCells('A2:H2');
+    resumen.getCell('A2').value = `Descargado desde el sistema · ${new Date().toLocaleString('es-EC')}`;
+    resumen.getCell('A2').font = { italic: true, color: { argb: muted }, size: 10 };
+    resumen.getCell('A2').alignment = { horizontal: 'center' };
+
+    const cards = [
+      ['A4:B6', 'Fases', excelFases.length],
+      ['C4:D6', 'Avance promedio', `${avancePromedio}%`],
+      ['E4:F6', 'En curso', enCurso],
+      ['G4:H6', 'Retrasadas', retrasadas],
+      ['A8:B10', 'Completadas', completadas],
+      ['C8:D10', 'Fecha inicio', fechaMin],
+      ['E8:F10', 'Fecha fin', fechaMax],
+      ['G8:H10', 'Duración total', `${totalDias} días`],
+    ];
+
+    cards.forEach(([range, label, value]: any) => {
+      resumen.mergeCells(range);
+      const cell = resumen.getCell(String(range).split(':')[0]);
+      cell.value = `${label}\n${value instanceof Date ? value.toLocaleDateString('es-EC') : value}`;
+      cell.font = { bold: true, color: { argb: text }, size: 13 };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: paper } };
+      cell.border = {
+        top: { style: 'thin', color: { argb: line } },
+        left: { style: 'thin', color: { argb: line } },
+        bottom: { style: 'thin', color: { argb: line } },
+        right: { style: 'thin', color: { argb: line } },
+      };
+    });
+
+    resumen.mergeCells('A12:H12');
+    resumen.getCell('A12').value = 'Leyenda visual';
+    resumen.getCell('A12').font = { bold: true, color: { argb: forest }, size: 14 };
+
+    const legend = [
+      ['Completado', '2E7D32'],
+      ['En curso', '1F4F3A'],
+      ['Pendiente', 'C9A76A'],
+      ['Retrasado', 'B91C1C'],
+    ];
+
+    legend.forEach((item, idx) => {
+      const row = 13 + idx;
+      resumen.getCell(`A${row}`).value = item[0];
+      resumen.getCell(`B${row}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${item[1]}` } };
+      resumen.getCell(`B${row}`).border = {
+        top: { style: 'thin', color: { argb: line } },
+        left: { style: 'thin', color: { argb: line } },
+        bottom: { style: 'thin', color: { argb: line } },
+        right: { style: 'thin', color: { argb: line } },
+      };
+    });
+
+    resumen.columns = [
+      { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 },
+      { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 },
+    ];
+
+    // =========================
+    // HOJA 2: CRONOGRAMA
+    // =========================
+    const detalle = workbook.addWorksheet('Cronograma', {
+      views: [{ state: 'frozen', ySplit: 4, showGridLines: false }],
+    });
+
+    detalle.mergeCells('A1:L1');
+    detalle.getCell('A1').value = 'Cronograma operativo parametrizable';
+    detalle.getCell('A1').font = { bold: true, color: { argb: cream }, size: 16 };
+    detalle.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: forest } };
+    detalle.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    detalle.getRow(1).height = 30;
+
+    detalle.mergeCells('A2:L2');
+    detalle.getCell('A2').value = 'Micelio Betania · Piloto de champiñón blanco 10 m² · Hoja generada desde Supabase';
+    detalle.getCell('A2').font = { italic: true, color: { argb: muted }, size: 10 };
+    detalle.getCell('A2').alignment = { horizontal: 'center' };
+
+    const headers = [
+      '#',
+      'Semana',
+      'Fase',
+      'Inicio',
+      'Fin',
+      'Días',
+      'Estado',
+      'Urgencia',
+      'Avance visual',
+      'Responsable',
+      'Descripción',
+      'Actividades',
+    ];
+
+    detalle.getRow(4).values = headers;
+    detalle.getRow(4).height = 26;
+    detalle.getRow(4).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: cream }, size: 10 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: forestDark } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border = {
+        top: { style: 'thin', color: { argb: line } },
+        left: { style: 'thin', color: { argb: line } },
+        bottom: { style: 'thin', color: { argb: line } },
+        right: { style: 'thin', color: { argb: line } },
+      };
+    });
+
+    excelFases.forEach((f, idx) => {
+      const rowNumber = 5 + idx;
+      const row = detalle.getRow(rowNumber);
+
+      row.values = [
+        f.numero,
+        f.semana,
+        f.nombre,
+        f.inicio,
+        f.fin,
+        f.duracion,
+        f.estado,
+        f.urgencia,
+        progressBarExcel(f.avance),
+        f.responsable,
+        f.descripcion,
+        f.actividades,
+      ];
+
+      row.height = 46;
+
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = { vertical: 'middle', wrapText: true };
+        cell.font = { size: 9, color: { argb: text } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : cream },
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: line } },
+          left: { style: 'thin', color: { argb: line } },
+          bottom: { style: 'thin', color: { argb: line } },
+          right: { style: 'thin', color: { argb: line } },
+        };
+
+        if ([1, 4, 5, 6, 7, 8, 9].includes(colNumber)) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        }
+      });
+
+      detalle.getCell(`D${rowNumber}`).numFmt = 'dd/mm/yyyy';
+      detalle.getCell(`E${rowNumber}`).numFmt = 'dd/mm/yyyy';
+
+      detalle.getCell(`G${rowNumber}`).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: estadoArgb(f.estadoRaw) },
+      };
+      detalle.getCell(`G${rowNumber}`).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+
+      detalle.getCell(`H${rowNumber}`).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: urgenciaArgb(f.urgenciaRaw) },
+      };
+      detalle.getCell(`H${rowNumber}`).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+
+      detalle.getCell(`I${rowNumber}`).font = {
+        bold: true,
+        color: { argb: estadoArgb(f.estadoRaw) },
+        size: 9,
+      };
+    });
+
+    detalle.columns = [
+      { width: 5 },
+      { width: 18 },
+      { width: 34 },
+      { width: 13 },
+      { width: 13 },
+      { width: 8 },
+      { width: 14 },
+      { width: 12 },
+      { width: 18 },
+      { width: 18 },
+      { width: 42 },
+      { width: 46 },
+    ];
+
+    detalle.autoFilter = {
+      from: { row: 4, column: 1 },
+      to: { row: 4, column: 12 },
+    };
+
+    // =========================
+    // HOJA 3: GANTT VISUAL
+    // =========================
+    const gantt = workbook.addWorksheet('Gantt Visual', {
+      views: [{ state: 'frozen', xSplit: 3, ySplit: 4, showGridLines: false }],
+    });
+
+    gantt.mergeCells('A1:C1');
+    gantt.getCell('A1').value = 'Gantt visual';
+    gantt.getCell('A1').font = { bold: true, color: { argb: cream }, size: 16 };
+    gantt.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: forest } };
+    gantt.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    gantt.getCell('A3').value = 'Semana';
+    gantt.getCell('B3').value = 'Fase';
+    gantt.getCell('C3').value = 'Avance';
+
+    ['A3', 'B3', 'C3'].forEach((addr) => {
+      const cell = gantt.getCell(addr);
+      cell.font = { bold: true, color: { argb: cream } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: forestDark } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    for (let i = 0; i < totalDias; i++) {
+      const col = 4 + i;
+      const current = addDays(fechaMin, i);
+      const cell = gantt.getCell(3, col);
+      cell.value = current;
+      cell.numFmt = 'dd/mm';
+      cell.alignment = { textRotation: 90, horizontal: 'center', vertical: 'middle' };
+      cell.font = { size: 8, color: { argb: text } };
+
+      const isWeekend = current.getDay() === 0 || current.getDay() === 6;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: isWeekend ? 'FFEFE5D1' : cream },
+      };
+
+      gantt.getColumn(col).width = 3.2;
+    }
+
+    gantt.getRow(3).height = 50;
+
+    excelFases.forEach((f, idx) => {
+      const rowNumber = 4 + idx;
+      gantt.getCell(`A${rowNumber}`).value = f.semana;
+      gantt.getCell(`B${rowNumber}`).value = f.nombre;
+      gantt.getCell(`C${rowNumber}`).value = `${f.avance}%`;
+
+      gantt.getRow(rowNumber).height = 24;
+
+      ['A', 'B', 'C'].forEach((colLetter) => {
+        const cell = gantt.getCell(`${colLetter}${rowNumber}`);
+        cell.alignment = { vertical: 'middle', wrapText: true };
+        cell.font = { size: 9, color: { argb: text } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: line } },
+          left: { style: 'thin', color: { argb: line } },
+          bottom: { style: 'thin', color: { argb: line } },
+          right: { style: 'thin', color: { argb: line } },
+        };
+      });
+
+      const barColor = estadoArgb(f.estadoRaw);
+
+      for (let i = 0; i < totalDias; i++) {
+        const col = 4 + i;
+        const current = addDays(fechaMin, i);
+        const cell = gantt.getCell(rowNumber, col);
+
+        const active =
+          f.inicio &&
+          f.fin &&
+          current.getTime() >= f.inicio.getTime() &&
+          current.getTime() <= f.fin.getTime();
+
+        const isWeekend = current.getDay() === 0 || current.getDay() === 6;
+
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: active ? barColor : isWeekend ? 'FFFFF3D6' : 'FFFFFFFF' },
+        };
+
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFEDE3CC' } },
+          left: { style: 'thin', color: { argb: 'FFEDE3CC' } },
+          bottom: { style: 'thin', color: { argb: 'FFEDE3CC' } },
+          right: { style: 'thin', color: { argb: 'FFEDE3CC' } },
+        };
+      }
+    });
+
+    gantt.columns[0].width = 18;
+    gantt.columns[1].width = 36;
+    gantt.columns[2].width = 10;
+
+    // =========================
+    // HOJA 4: ACTIVIDADES
+    // =========================
+    const actividades = workbook.addWorksheet('Actividades', {
+      views: [{ state: 'frozen', ySplit: 3, showGridLines: false }],
+    });
+
+    actividades.mergeCells('A1:F1');
+    actividades.getCell('A1').value = 'Actividades por fase';
+    actividades.getCell('A1').font = { bold: true, color: { argb: cream }, size: 16 };
+    actividades.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: forest } };
+    actividades.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    actividades.getRow(3).values = ['#', 'Fase', 'Actividad', 'Estado fase', 'Urgencia', 'Responsable'];
+    actividades.getRow(3).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: cream } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: forestDark } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    let actRow = 4;
+
+    excelFases.forEach((f) => {
+      const acts = String(f.actividades || '')
+        .split('\n')
+        .map((a) => a.trim())
+        .filter(Boolean);
+
+      if (!acts.length) {
+        actividades.getRow(actRow).values = [f.numero, f.nombre, 'Sin actividades registradas', f.estado, f.urgencia, f.responsable];
+        actRow += 1;
+        return;
+      }
+
+      acts.forEach((a) => {
+        actividades.getRow(actRow).values = [f.numero, f.nombre, a, f.estado, f.urgencia, f.responsable];
+        actRow += 1;
+      });
+    });
+
+    for (let r = 3; r < actRow; r++) {
+      actividades.getRow(r).eachCell((cell) => {
+        cell.alignment = { vertical: 'middle', wrapText: true };
+        cell.border = {
+          top: { style: 'thin', color: { argb: line } },
+          left: { style: 'thin', color: { argb: line } },
+          bottom: { style: 'thin', color: { argb: line } },
+          right: { style: 'thin', color: { argb: line } },
+        };
+      });
+    }
+
+    actividades.columns = [
+      { width: 6 },
+      { width: 34 },
+      { width: 58 },
+      { width: 16 },
+      { width: 14 },
+      { width: 18 },
+    ];
+
+    // Seguridad visual final
+    workbook.eachSheet((sheet) => {
+      sheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.alignment = { ...(cell.alignment || {}), vertical: 'middle' };
+        });
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `Micelio_Betania_Cronograma_${date}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    mostrarMensaje('Cronograma descargado en Excel correctamente.');
+  };
+
+
   return (
     <div className="space-y-6">
       <header className="flex items-start justify-between gap-4">
@@ -389,6 +902,14 @@ export default function Cronograma() {
           >
             <RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`} />
             Refrescar
+          </button>
+
+          <button
+            onClick={descargarCronogramaExcel}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-micelio-200 bg-white text-bosque-700 hover:bg-micelio-50 text-sm"
+          >
+            <Download className="w-4 h-4" />
+            Descargar Excel
           </button>
 
           <button
