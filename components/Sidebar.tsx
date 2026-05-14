@@ -12,7 +12,6 @@ import {
   DatabaseZap,
   Brain,
   Briefcase,
-  Leaf,
   FileText,
 } from 'lucide-react';
 
@@ -42,8 +41,12 @@ export default function Sidebar({
     <aside className="w-64 bg-tierra-900 text-tierra-50 flex flex-col border-r border-tierra-800">
       <div className="p-6 border-b border-tierra-800">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-micelio-400 flex items-center justify-center">
-            <Leaf className="w-5 h-5 text-tierra-900" />
+          <div className="w-12 h-12 rounded-2xl bg-micelio-100/10 border border-micelio-400/20 flex items-center justify-center overflow-hidden">
+            <img
+              src="/micelio-betania-logo-transparent.svg"
+              alt="Micelio Betania"
+              className="w-10 h-10 object-contain"
+            />
           </div>
           <div>
             <div className="font-serif text-xl text-micelio-100 leading-tight">Micelio</div>
