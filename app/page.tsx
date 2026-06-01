@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import AuthGate from '@/components/AuthGate';
 import Sidebar from '@/components/Sidebar';
 import Dashboard from '@/components/Dashboard';
+import Especies from '@/components/Especies';
 import Cronograma from '@/components/Cronograma';
 import Proveedores from '@/components/Proveedores';
 import Inventario from '@/components/Inventario';
@@ -40,7 +41,8 @@ export default function Home() {
 
         <main className="flex-1 overflow-y-auto">
           <div className="p-6 md:p-10 max-w-7xl mx-auto">
-            {seccion === 'dashboard' && <Dashboard setSeccion={setSeccion} />}
+            {seccion === 'dashboard' && <Dashboard setSeccion={setSeccion} 
+          {seccion === 'especies' && <Especies />}/>}
             {seccion === 'cronograma' && <Cronograma />}
             {seccion === 'proveedores' && <Proveedores />}
             {seccion === 'inventario' && <Inventario />}

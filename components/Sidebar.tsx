@@ -12,11 +12,11 @@ import {
   DatabaseZap,
   Brain,
   Briefcase,
-  FileText,
-} from 'lucide-react';
+  FileText, Sprout } from 'lucide-react';
 
 const items = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'especies', label: 'Especies', icon: Sprout },
   { id: 'cronograma', label: 'Cronograma', icon: Calendar },
   { id: 'proveedores', label: 'Proveedores', icon: Users },
   { id: 'inventario', label: 'Inventario', icon: Package },
