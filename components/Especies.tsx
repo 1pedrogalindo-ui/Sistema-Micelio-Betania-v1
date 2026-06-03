@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   Leaf, X, AlertTriangle, Droplets, Thermometer, Wind,
@@ -223,6 +224,7 @@ function ModalDetalleEspecie({ especie, onClose }: { especie: Especie; onClose: 
   const [riesgos, setRiesgos] = useState<EspecieRiesgo[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'fases' | 'sustrato' | 'riesgos'>('fases');
+  const [mostrarFormCrear, setMostrarFormCrear] = useState(false);
 
   useEffect(() => {
     cargarDetalles();
@@ -287,10 +289,20 @@ function ModalDetalleEspecie({ especie, onClose }: { especie: Especie; onClose: 
               <p className="text-sm text-tierra-800">{especie.notas_estrategicas}</p>
             </div>
           )}
-          <button disabled className="w-full px-4 py-3 bg-micelio-600 text-white rounded-lg text-sm font-medium hover:bg-micelio-700 disabled:opacity-50 disabled:cursor-not-allowed">
-            Crear ciclo con esta especie (próximamente)
+          <button
+            onClick={() => setMostrarFormCrear(true)}
+            className="w-full px-4 py-3 bg-micelio-600 text-white rounded-lg text-sm font-medium hover:bg-micelio-700 transition"
+          >
+            🌱 Crear ciclo con esta especie
           </button>
         </div>
+      {mostrarFormCrear && (
+        <FormularioCrearCiclo
+          especie={especie}
+          onClose={() => setMostrarFormCrear(false)}
+          onCreado={() => { setMostrarFormCrear(false); onClose(); }}
+        />
+      )}
       </div>
     </div>
   );
@@ -488,3 +500,223 @@ function RiesgoIcon({ tipo }: { tipo: string }) {
   const Icon = iconos[tipo] || AlertTriangle;
   return <Icon className="w-4 h-4 text-amber-600" />;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// FORMULARIO CREAR CICLO
+// ═══════════════════════════════════════════════════════════════════
+function FormularioCrearCiclo({
+  especie,
+  onClose,
+  onCreado,
+}: {
+  especie: Especie;
+  onClose: () => void;
+  onCreado: () => void;
+}) {
+  const router = useRouter();
+  const [cicloId, setCicloId] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().slice(0, 10));
+  const [areaM2, setAreaM2] = useState(10);
+  const [objetivo, setObjetivo] = useState('');
+  const [observaciones, setObservaciones] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Auto-generar cicloId basado en la especie
+  useEffect(() => {
+    const fecha = new Date();
+    const year = fecha.getFullYear();
+    const month = String(fecha.getMonth() + 1).padStart(2, '0');
+    const especieCorta = especie.id.split('-').slice(0, 2).join('-');
+    setCicloId(`C-${especieCorta}-${year}${month}`);
+    setNombre(`Ciclo ${especie.nombre_comercial} ${month}/${year}`);
+  }, [especie.id]);
+
+  const handleSubmit = async () => {
+    if (!cicloId.trim() || !nombre.trim() || !fechaInicio) {
+      setError('Completa todos los campos requeridos');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setError('Supabase no configurado');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error: err } = await supabase.rpc('crear_ciclo_desde_especie', {
+        p_ciclo_id: cicloId.trim(),
+        p_especie_id: especie.id,
+        p_nombre: nombre.trim(),
+        p_fecha_inicio: fechaInicio,
+        p_area_m2: areaM2,
+        p_objetivo: objetivo.trim() || null,
+        p_observaciones: observaciones.trim() || null,
+      });
+
+      if (err) throw err;
+
+      alert(`✅ Ciclo "${nombre}" creado con éxito. Se generaron las fases automáticamente.`);
+      onCreado();
+
+      // Redirigir al Cronograma
+      window.location.hash = '';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    } catch (e: any) {
+      setError(e.message || 'Error al crear el ciclo');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-tierra-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="bg-gradient-to-r from-micelio-600 to-micelio-700 text-white p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-xs uppercase tracking-widest text-micelio-200 mb-1">
+                Crear nuevo ciclo
+              </div>
+              <h3 className="font-serif text-2xl">{especie.nombre_comercial}</h3>
+              <p className="text-sm text-micelio-100 italic">{especie.nombre_cientifico}</p>
+            </div>
+            <button onClick={onClose} className="text-white/70 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              ❌ {error}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs uppercase tracking-wider text-tierra-600 mb-1">
+              ID del Ciclo *
+            </label>
+            <input
+              type="text"
+              value={cicloId}
+              onChange={e => setCicloId(e.target.value)}
+              placeholder="ej: C-ostra-blanca-202606"
+              className="w-full px-3 py-2 border border-micelio-200 rounded-lg text-sm focus:outline-none focus:border-micelio-500"
+            />
+            <p className="text-[10px] text-tierra-500 mt-1">
+              Identificador único. Se autogeneró pero puedes editarlo.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wider text-tierra-600 mb-1">
+              Nombre del Ciclo *
+            </label>
+            <input
+              type="text"
+              value={nombre}
+              onChange={e => setNombre(e.target.value)}
+              placeholder="ej: Ciclo Ostra Blanca Junio 2026"
+              className="w-full px-3 py-2 border border-micelio-200 rounded-lg text-sm focus:outline-none focus:border-micelio-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-tierra-600 mb-1">
+                Fecha Inicio *
+              </label>
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={e => setFechaInicio(e.target.value)}
+                className="w-full px-3 py-2 border border-micelio-200 rounded-lg text-sm focus:outline-none focus:border-micelio-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-tierra-600 mb-1">
+                Área (m²)
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="0.5"
+                value={areaM2}
+                onChange={e => setAreaM2(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-micelio-200 rounded-lg text-sm focus:outline-none focus:border-micelio-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wider text-tierra-600 mb-1">
+              Objetivo
+            </label>
+            <input
+              type="text"
+              value={objetivo}
+              onChange={e => setObjetivo(e.target.value)}
+              placeholder="ej: Primer cultivo de validación de mercado"
+              className="w-full px-3 py-2 border border-micelio-200 rounded-lg text-sm focus:outline-none focus:border-micelio-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wider text-tierra-600 mb-1">
+              Observaciones
+            </label>
+            <textarea
+              value={observaciones}
+              onChange={e => setObservaciones(e.target.value)}
+              placeholder="ej: Sustrato de Tumbaco, semilla de Intiwasi"
+              rows={3}
+              className="w-full px-3 py-2 border border-micelio-200 rounded-lg text-sm focus:outline-none focus:border-micelio-500"
+            />
+          </div>
+
+          <div className="bg-micelio-50 border border-micelio-200 rounded-lg p-3 text-xs text-tierra-700">
+            <strong className="text-micelio-700">✨ Al crear este ciclo:</strong>
+            <ul className="mt-2 space-y-1 ml-4 list-disc">
+              <li>Se generarán automáticamente las fases de {especie.nombre_comercial}</li>
+              <li>Cada fase tendrá sus fechas calculadas</li>
+              <li>Los parámetros ambientales se vincularán al ciclo</li>
+              <li>Podrás registrar avances desde el módulo Cronograma</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-micelio-200 bg-tierra-50 flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 px-4 py-2.5 bg-white text-tierra-700 border border-tierra-300 rounded-lg text-sm font-medium hover:bg-tierra-100 transition disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="flex-1 px-4 py-2.5 bg-micelio-600 text-white rounded-lg text-sm font-medium hover:bg-micelio-700 transition disabled:opacity-50"
+          >
+            {loading ? 'Creando...' : '🌱 Crear Ciclo'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
